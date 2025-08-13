@@ -71,18 +71,6 @@ jobs:
         
         # Copy DXT package
         cp ${{ steps.dxt_package.outputs.file }} release/
-        
-        # Create source archive
-        zip -r release/${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip \
-          src/ \
-          package.json \
-          package-lock.json \
-          tsconfig.json \
-          manifest.json \
-          README.md \
-          --exclude="node_modules/*" \
-          --exclude="dist/*" \
-          --exclude="cache/*"
           
     - name: Create Release and Upload Assets
       uses: softprops/action-gh-release@v1
@@ -96,7 +84,7 @@ jobs:
           
           ### 📦 Downloads
           - **DXT Extension**: `${{ steps.dxt_package.outputs.filename }}` - Ready to install in Claude Desktop
-          - **Source Code**: `${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip` - Complete source code
+          - **Source Code**: Available as zip and tar.gz archives below
           
           ### 🚀 Installation
           
@@ -124,7 +112,6 @@ jobs:
         prerelease: false
         files: |
           ${{ steps.dxt_package.outputs.file }}
-          release/${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip
         
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
