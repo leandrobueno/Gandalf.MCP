@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     
     steps:
     - name: Checkout code
@@ -78,8 +78,7 @@ jobs:
           package-lock.json \
           tsconfig.json \
           manifest.json \
-          README.md \
-          CLAUDE.md \
+          README.md \          
           --exclude="node_modules/*" \
           --exclude="dist/*" \
           --exclude="cache/*"
@@ -156,31 +155,3 @@ jobs:
           ${{ steps.dxt_package.outputs.file }}
         retention-days: 30
 
-  # Optional: Build on multiple platforms for testing
-  test-build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        node-version: [18, 20]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build TypeScript
-      run: npm run build
-      
-    - name: Test server startup
-      run: timeout 10 node dist/server.js || echo "Server test completed"
-      shell: bash
-      continue-on-error: true

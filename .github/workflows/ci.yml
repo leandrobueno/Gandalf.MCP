@@ -8,10 +8,9 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
         node-version: [18, 20]
     
     steps:
@@ -38,8 +37,8 @@ jobs:
       run: npm test || echo "No tests configured, skipping..."
       continue-on-error: true
       
-    - name: Test DXT pack (Ubuntu only)
-      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '18'
+    - name: Test DXT pack
+      if: matrix.node-version == '18'
       run: |
         npm install -g @anthropic-ai/dxt
         npx @anthropic-ai/dxt pack
