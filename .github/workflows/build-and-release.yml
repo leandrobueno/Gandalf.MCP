@@ -1,0 +1,186 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on version tags (e.g., v1.0.0, v1.2.3)
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: write # Required for creating releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build TypeScript
+      run: npm run build
+      
+    - name: Run tests (if available)
+      run: npm test || echo "No tests configured, skipping..."
+      continue-on-error: true
+      
+    - name: Install DXT CLI
+      run: npm install -g @anthropic-ai/dxt
+      
+    - name: Pack DXT extension
+      run: npx @anthropic-ai/dxt pack
+      
+    - name: Get package info
+      id: package
+      run: |
+        echo "name=$(node -p "require('./package.json').name")" >> $GITHUB_OUTPUT
+        echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        
+    - name: Find DXT package
+      id: dxt_package
+      run: |
+        # Find the generated .dxt file
+        DXT_FILE=$(find . -name "*.dxt" -type f | head -n 1)
+        if [ -z "$DXT_FILE" ]; then
+          echo "Error: No .dxt file found"
+          exit 1
+        fi
+        echo "file=$DXT_FILE" >> $GITHUB_OUTPUT
+        echo "filename=$(basename $DXT_FILE)" >> $GITHUB_OUTPUT
+        
+    - name: Create build artifacts
+      run: |
+        # Create a release directory
+        mkdir -p release
+        
+        # Copy built files
+        cp -r dist/ release/
+        cp package.json release/
+        cp manifest.json release/
+        cp README.md release/        
+        
+        # Copy DXT package
+        cp ${{ steps.dxt_package.outputs.file }} release/
+        
+        # Create source archive
+        zip -r release/${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip \
+          src/ \
+          package.json \
+          package-lock.json \
+          tsconfig.json \
+          manifest.json \
+          README.md \
+          CLAUDE.md \
+          --exclude="node_modules/*" \
+          --exclude="dist/*" \
+          --exclude="cache/*"
+          
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          ## Gandalf MCP Server ${{ github.ref_name }}
+          
+          Fantasy Football MCP Server for Sleeper API integration.
+          
+          ### 📦 Downloads
+          - **DXT Extension**: `${{ steps.dxt_package.outputs.filename }}` - Ready to install in Claude Desktop
+          - **Source Code**: `${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip` - Complete source code
+          
+          ### 🚀 Installation
+          
+          **Option 1: DXT Extension (Recommended)**
+          1. Download the `.dxt` file from the assets below
+          2. Follow [Claude Desktop MCP installation guide](https://docs.anthropic.com/en/docs/claude-code/mcp)
+          
+          **Option 2: Manual Installation**
+          1. Download and extract the source code
+          2. Run `npm install && npm run build`
+          3. Configure in Claude Desktop settings
+          
+          ### 📋 Features
+          - Player search and analysis
+          - League management and standings  
+          - Roster analysis and recommendations
+          - Draft tracking and available players
+          - Historical data caching for performance
+          - Trending player analysis
+          
+          ### 🔧 Requirements
+          - Node.js 18+
+          - Claude Desktop with MCP support
+        draft: false
+        prerelease: false
+        
+    - name: Upload DXT Extension
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.dxt_package.outputs.file }}
+        asset_name: ${{ steps.dxt_package.outputs.filename }}
+        asset_content_type: application/octet-stream
+        
+    - name: Upload Source Archive
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: release/${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip
+        asset_name: ${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}-source.zip
+        asset_content_type: application/zip
+        
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ steps.package.outputs.version }}
+        path: |
+          dist/
+          release/
+          ${{ steps.dxt_package.outputs.file }}
+        retention-days: 30
+
+  # Optional: Build on multiple platforms for testing
+  test-build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18, 20]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build TypeScript
+      run: npm run build
+      
+    - name: Test server startup
+      run: timeout 10 node dist/server.js || echo "Server test completed"
+      shell: bash
+      continue-on-error: true

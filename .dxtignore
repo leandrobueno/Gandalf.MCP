@@ -1,0 +1,17 @@
+node_modules/@esbuild
+node_modules/.bin
+node_modules/@types
+node_modules/rimraf
+node_modules/tsx
+node_modules/typescript
+*.log
+*.tmp
+.git
+.github
+.vscode
+.idea
+dist/*.map
+dist/*.d.ts
+src/
+tsconfig.json
+README.md

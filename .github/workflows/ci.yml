@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [18, 20]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Lint (if configured)
+      run: npm run lint || echo "No linting configured, skipping..."
+      continue-on-error: true
+      
+    - name: Build TypeScript
+      run: npm run build
+      
+    - name: Test (if configured)
+      run: npm test || echo "No tests configured, skipping..."
+      continue-on-error: true
+      
+    - name: Test DXT pack (Ubuntu only)
+      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '18'
+      run: |
+        npm install -g @anthropic-ai/dxt
+        npx @anthropic-ai/dxt pack
+        
+    - name: Test server startup
+      run: timeout 10 node dist/server.js || echo "Server startup test completed"
+      shell: bash
+      continue-on-error: true

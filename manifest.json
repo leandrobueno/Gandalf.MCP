@@ -1,0 +1,88 @@
+{
+  "dxt_version": "0.1",
+  "name": "gandalf-mcp",
+  "version": "1.0.0",
+  "display_name": "gandalf",
+  "description": "MCP server for fantasy football data from Sleeper App",
+  "long_description": "# Gandalf Fantasy Football MCP\n\nA comprehensive Model Context Protocol (MCP) server that provides fantasy football data and analytics through Sleeper APIs. Features include:\n\n- Player information and statistics\n- League management and standings\n- Roster analysis and recommendations\n- Draft information\n- Matchup data and projections\n- Trending player analysis\n\nPerfect for fantasy football enthusiasts who want to integrate their league data with Claude Desktop.\n\n## API Usage & Compliance\n\nThis extension follows Sleeper API best practices:\n- Implements intelligent caching to minimize API calls\n- Respects rate limits and usage guidelines\n- Caches player data locally as recommended (refreshed daily)\n- Uses appropriate User-Agent headers for identification",
+  "author": {
+    "name": "Leandro Bueno",
+    "email": "leandro.righeti@gmail.com",
+    "url": "https://github.com/leandrobueno/Gandalf.MCP"
+  },
+  "license": "MIT",
+  "keywords": [
+    "fantasy-football",
+    "sleeper",
+    "espn",
+    "sports",
+    "analytics",
+    "mcp"
+  ],
+  "tools": [
+    {
+      "name": "test_connection",
+      "description": "Test MCP server connection"
+    },
+    {
+      "name": "get_nfl_state",
+      "description": "Get current NFL season and week information"
+    },
+    {
+      "name": "search_players",
+      "description": "Search for NFL players by name, position, or team"
+    },
+    {
+      "name": "get_player",
+      "description": "Get detailed player information"
+    },
+    {
+      "name": "get_trending_players",
+      "description": "Get trending players (most added/dropped)"
+    },
+    {
+      "name": "get_user_leagues",
+      "description": "Get fantasy leagues for a user"
+    },
+    {
+      "name": "get_league_details",
+      "description": "Get detailed league information"
+    },
+    {
+      "name": "get_league_draft",
+      "description": "Get draft information for a league"
+    },
+    {
+      "name": "get_league_transactions",
+      "description": "Get recent league transactions"
+    },
+    {
+      "name": "get_matchups",
+      "description": "Get matchup information for a week"
+    },
+    {
+      "name": "get_roster",
+      "description": "Get roster information for a team"
+    },
+    {
+      "name": "get_all_rosters",
+      "description": "Get all rosters in a league"
+    },
+    {
+      "name": "get_draft_available_players",
+      "description": "Get available (undrafted) players for a specific draft, ranked by fantasy value"
+    }
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/server.js"]
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32", "darwin", "linux"],
+    "claude_desktop": ">=0.1.0"
+  }
+}
