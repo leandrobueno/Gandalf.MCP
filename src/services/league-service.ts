@@ -254,18 +254,18 @@ export class LeagueService implements ILeagueService {
     
     // Sort by starter status first, then by points
     return playerDetails.sort((a, b) => {
-      if (a.isStarter && !b.isStarter) return -1;
-      if (!a.isStarter && b.isStarter) return 1;
+      if (a.isStarter && !b.isStarter) {return -1;}
+      if (!a.isStarter && b.isStarter) {return 1;}
       return b.points - a.points;
     });
   }
 
   private getScoringType(scoringSettings?: Record<string, number>): string {
-    if (!scoringSettings) return 'Unknown';
+    if (!scoringSettings) {return 'Unknown';}
     
     const ppr = scoringSettings['rec'] || 0;
-    if (ppr >= 1) return 'Full PPR';
-    if (ppr >= 0.5) return 'Half PPR';
+    if (ppr >= 1) {return 'Full PPR';}
+    if (ppr >= 0.5) {return 'Half PPR';}
     return 'Standard';
   }
 }

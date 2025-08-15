@@ -47,7 +47,7 @@ export class RosterService implements IRosterService {
       })
       .sort((a, b) => {
         // Sort by wins desc, then total points desc
-        if (a.wins !== b.wins) return b.wins - a.wins;
+        if (a.wins !== b.wins) {return b.wins - a.wins;}
         return b.totalPoints - a.totalPoints;
       });
 

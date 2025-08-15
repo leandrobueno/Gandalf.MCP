@@ -100,7 +100,7 @@ export class MemoryCacheService implements ICacheService {
 
   async getOrSet<T>(key: string, factory: () => Promise<T>, expirationSeconds: number): Promise<T> {
     const cached = await this.get<T>(key);
-    if (cached !== null) return cached;
+    if (cached !== null) {return cached;}
     
     const value = await factory();
     await this.set(key, value, expirationSeconds);
@@ -190,7 +190,7 @@ export class MemoryCacheService implements ICacheService {
       let cleanedCount = 0;
 
       for (const file of files) {
-        if (!file.endsWith('.json')) continue;
+        if (!file.endsWith('.json')) {continue;}
 
         const filePath = path.join(this.cacheDir, file);
         try {
@@ -202,7 +202,7 @@ export class MemoryCacheService implements ICacheService {
             await fs.promises.unlink(filePath);
             cleanedCount++;
           }
-        } catch (error) {
+        } catch {
           // If we can't parse the file, delete it
           await fs.promises.unlink(filePath).catch(() => {});
           cleanedCount++;

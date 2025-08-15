@@ -8,9 +8,15 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx src/server.ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
   },
-  "keywords": ["mcp", "fantasy-football", "sleeper"],
+  "keywords": [
+    "mcp",
+    "fantasy-football",
+    "sleeper"
+  ],
   "author": "Gandalf",
   "license": "MIT",
   "dependencies": {
@@ -19,7 +25,11 @@
     "node-cache": "^5.1.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.33.0",
     "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.1",
+    "@typescript-eslint/parser": "^8.39.1",
+    "eslint": "^9.33.0",
     "rimraf": "^5.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"

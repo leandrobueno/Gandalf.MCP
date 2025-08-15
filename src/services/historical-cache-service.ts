@@ -96,7 +96,7 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     return !!(season === currentSeason && week && week < currentWeek);
   }
 
-  private getFilePath(key: string, dataType: string, season?: string, week?: number): string {
+  private getFilePath(key: string, dataType: string, season?: string, _week?: number): string {
     let filePath: string;
 
     switch (dataType) {
@@ -202,11 +202,11 @@ export class HistoricalCacheService implements IHistoricalCacheService {
   }
 
   private extractDataTypeFromKey(key: string): string {
-    if (key.includes('_leagues_')) return 'leagues';
-    if (key.startsWith('draft_')) return 'drafts';
-    if (key.includes('_matchups')) return 'matchups';
-    if (key.includes('_transactions')) return 'transactions';
-    if (key.includes('_rosters')) return 'rosters';
+    if (key.includes('_leagues_')) {return 'leagues';}
+    if (key.startsWith('draft_')) {return 'drafts';}
+    if (key.includes('_matchups')) {return 'matchups';}
+    if (key.includes('_transactions')) {return 'transactions';}
+    if (key.includes('_rosters')) {return 'rosters';}
     return 'general';
   }
 

@@ -1,5 +1,4 @@
 import { 
-  FantasyProResponse, 
   PlayerRankings, 
   ExpertOpinion,
   PlayerTrends 
@@ -101,7 +100,7 @@ export class FantasyProClient implements IFantasyProClient {
     }
   }
 
-  private parseRankingsFromHtml(html: string, scoringFormat: string): Array<{position: string; tier: number; adp: number}> {
+  private parseRankingsFromHtml(html: string, _scoringFormat: string): Array<{position: string; tier: number; adp: number}> {
     const rankings: Array<{position: string; tier: number; adp: number}> = [];
     
     try {

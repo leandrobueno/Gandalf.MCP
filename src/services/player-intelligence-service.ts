@@ -279,19 +279,19 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     let score = 50; // Base score
 
     // Age factor
-    if (player.age && player.age < 25) score += 10;
-    if (player.age && player.age > 30) score -= 5;
+    if (player.age && player.age < 25) {score += 10;}
+    if (player.age && player.age > 30) {score -= 5;}
 
     // Experience factor
-    if (player.yearsExp && player.yearsExp > 1 && player.yearsExp < 8) score += 5;
+    if (player.yearsExp && player.yearsExp > 1 && player.yearsExp < 8) {score += 5;}
 
     // Injury status
-    if (player.injuryStatus === 'Healthy') score += 10;
-    if (player.injuryStatus === 'Out') score -= 20;
+    if (player.injuryStatus === 'Healthy') {score += 10;}
+    if (player.injuryStatus === 'Out') {score -= 20;}
 
     // ADP factor (lower ADP = higher demand = higher score)
-    if (adp < 24) score += 15; // First 2 rounds
-    if (adp > 120) score -= 10; // Late rounds
+    if (adp < 24) {score += 15;} // First 2 rounds
+    if (adp > 120) {score -= 10;} // Late rounds
 
     return Math.max(0, Math.min(100, score));
   }
@@ -300,9 +300,9 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     const expectedADP = positionRank * 3; // Rough estimate
     const difference = adp - expectedADP;
 
-    if (difference > 20) return 'reach';
-    if (difference > 5) return 'fair';
-    if (difference < -10) return 'steal';
+    if (difference > 20) {return 'reach';}
+    if (difference > 5) {return 'fair';}
+    if (difference < -10) {return 'steal';}
     return 'value';
   }
 

@@ -1,6 +1,4 @@
 import { 
-  ESPNPlayerResponse, 
-  ESPNNewsResponse, 
   PlayerNews, 
   InjuryReport,
   PlayerRankings 
@@ -155,11 +153,11 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
   private mapInjuryStatus(status: string): 'healthy' | 'questionable' | 'doubtful' | 'out' | 'ir' | 'pup' {
     const statusLower = status?.toLowerCase() || '';
     
-    if (statusLower.includes('out') || statusLower.includes('inactive')) return 'out';
-    if (statusLower.includes('doubtful')) return 'doubtful';
-    if (statusLower.includes('questionable')) return 'questionable';
-    if (statusLower.includes('ir') || statusLower.includes('injured reserve')) return 'ir';
-    if (statusLower.includes('pup')) return 'pup';
+    if (statusLower.includes('out') || statusLower.includes('inactive')) {return 'out';}
+    if (statusLower.includes('doubtful')) {return 'doubtful';}
+    if (statusLower.includes('questionable')) {return 'questionable';}
+    if (statusLower.includes('ir') || statusLower.includes('injured reserve')) {return 'ir';}
+    if (statusLower.includes('pup')) {return 'pup';}
     
     return 'healthy';
   }
