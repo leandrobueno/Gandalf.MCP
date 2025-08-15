@@ -55,6 +55,16 @@ export class LeagueTools {
               type: 'integer',
               description: 'Week number (optional, defaults to current week)',
               default: null
+            },
+            includePlayerDetails: {
+              type: 'boolean',
+              description: 'Include detailed player information with names and starter status (default: false)',
+              default: false
+            },
+            includeRosterDetails: {
+              type: 'boolean',
+              description: 'Include full roster details including all players and starters (default: false)',
+              default: false
             }
           },
           required: ['leagueId']
@@ -100,7 +110,7 @@ export class LeagueTools {
         return this.getLeagueDetails(args.leagueId);
       
       case 'get_matchups':
-        return this.getMatchups(args.leagueId, args.week);
+        return this.getMatchups(args.leagueId, args.week, args.includePlayerDetails, args.includeRosterDetails);
       
       case 'get_league_transactions':
         return this.getLeagueTransactions(args.leagueId, args.week);
@@ -195,9 +205,9 @@ export class LeagueTools {
     }
   }
 
-  private async getMatchups(leagueId: string, week?: number): Promise<{ content: Array<{ type: string; text: string }> }> {
+  private async getMatchups(leagueId: string, week?: number, includePlayerDetails?: boolean, includeRosterDetails?: boolean): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
-      const result = await this.leagueService.getMatchups(leagueId, week);
+      const result = await this.leagueService.getMatchups(leagueId, week, includePlayerDetails, includeRosterDetails);
 
       const summary = `Week ${result.week} matchups for league ${leagueId} - ${result.totalMatchups} matchups`;
 

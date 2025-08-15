@@ -78,7 +78,7 @@ class GandalfMcpServer {
       this.playerIntelligenceService
     );
     this.playerService = new PlayerService(this.sleeperClient, this.cacheService);
-    this.leagueService = new LeagueService(this.sleeperClient, this.historicalCache);
+    this.leagueService = new LeagueService(this.sleeperClient, this.historicalCache, this.playerService);
     this.rosterService = new RosterService(this.sleeperClient, this.cacheService);
 
     // Initialize tools

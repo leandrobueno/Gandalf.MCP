@@ -1,6 +1,7 @@
 import { ISleeperApiClient } from './sleeper-api-client.js';
 import { SleeperMatchup } from '../models/sleeper-models.js';
 import { IHistoricalCacheService } from './historical-cache-service.js';
+import { IPlayerService } from '../models/player-models.js';
 import {
   ILeagueService,
   UserLeaguesResult,
@@ -9,14 +10,16 @@ import {
   MatchupsResult,
   MatchupDetails,
   TransactionsResult,
-  TransactionDetails
+  TransactionDetails,
+  PlayerMatchupInfo
 } from '../models/league-models.js';
 
 
 export class LeagueService implements ILeagueService {
   constructor(
     private sleeperClient: ISleeperApiClient,
-    private historicalCache: IHistoricalCacheService
+    private historicalCache: IHistoricalCacheService,
+    private playerService: IPlayerService
   ) {}
 
   async getUserLeagues(username: string, season?: string): Promise<UserLeaguesResult> {
@@ -93,7 +96,7 @@ export class LeagueService implements ILeagueService {
     };
   }
 
-  async getMatchups(leagueId: string, week?: number): Promise<MatchupsResult> {
+  async getMatchups(leagueId: string, week?: number, includePlayerDetails?: boolean, includeRosterDetails?: boolean): Promise<MatchupsResult> {
     // Get league details to determine season
     const league = await this.sleeperClient.getLeague(leagueId);
     if (!league) {
@@ -134,16 +137,41 @@ export class LeagueService implements ILeagueService {
       return acc;
     }, {} as Record<number, SleeperMatchup[]>);
 
-    const matchupDetails: MatchupDetails[] = Object.entries(groupedMatchups).map(([matchupId, teams]) => ({
-      matchupId: parseInt(matchupId),
-      teams: teams.map(team => ({
-        rosterId: team.roster_id,
-        points: team.points,
-        starters: team.starters,
-        players: team.players,
-        playersPoints: team.players_points
+    const matchupDetails: MatchupDetails[] = await Promise.all(
+      Object.entries(groupedMatchups).map(async ([matchupId, teams]) => ({
+        matchupId: parseInt(matchupId),
+        teams: await Promise.all(teams.map(async team => {
+          const teamMatchup: any = {
+            rosterId: team.roster_id,
+            points: team.points
+          };
+
+          // Include roster details if requested
+          if (includeRosterDetails) {
+            teamMatchup.starters = team.starters;
+            teamMatchup.players = team.players;
+            teamMatchup.playersPoints = team.players_points;
+          }
+
+          // Include player details if requested
+          if (includePlayerDetails) {
+            const playerDetails = await this.getPlayerMatchupDetails(
+              team.players_points || {}, 
+              team.starters || []
+            );
+            teamMatchup.starterDetails = playerDetails.filter(p => p.isStarter);
+            if (includeRosterDetails) {
+              teamMatchup.playerDetails = playerDetails;
+            }
+          } else {
+            // Default: just include player points for scoring
+            teamMatchup.playersPoints = team.players_points;
+          }
+
+          return teamMatchup;
+        }))
       }))
-    }));
+    );
 
     return {
       leagueId,
@@ -202,6 +230,34 @@ export class LeagueService implements ILeagueService {
       totalTransactions: transactions.length,
       transactions: transactionDetails
     };
+  }
+
+  private async getPlayerMatchupDetails(
+    playersPoints: Record<string, number>, 
+    starters: string[]
+  ): Promise<PlayerMatchupInfo[]> {
+    const playerDetails: PlayerMatchupInfo[] = [];
+    
+    for (const [playerId, points] of Object.entries(playersPoints)) {
+      const player = await this.playerService.getPlayer(playerId);
+      const isStarter = starters.includes(playerId);
+      
+      playerDetails.push({
+        playerId,
+        name: player?.fullName || playerId,
+        position: player?.position,
+        team: player?.team,
+        points,
+        isStarter
+      });
+    }
+    
+    // Sort by starter status first, then by points
+    return playerDetails.sort((a, b) => {
+      if (a.isStarter && !b.isStarter) return -1;
+      if (!a.isStarter && b.isStarter) return 1;
+      return b.points - a.points;
+    });
   }
 
   private getScoringType(scoringSettings?: Record<string, number>): string {

@@ -1,7 +1,7 @@
 export interface ILeagueService {
   getUserLeagues(username: string, season?: string): Promise<UserLeaguesResult>;
   getLeagueDetails(leagueId: string): Promise<LeagueDetails | null>;
-  getMatchups(leagueId: string, week?: number): Promise<MatchupsResult>;
+  getMatchups(leagueId: string, week?: number, includePlayerDetails?: boolean, includeRosterDetails?: boolean): Promise<MatchupsResult>;
   getLeagueTransactions(leagueId: string, week?: number): Promise<TransactionsResult>;
 }
 
@@ -60,6 +60,17 @@ export interface TeamMatchup {
   starters?: string[];
   players?: string[];
   playersPoints?: Record<string, number>;
+  starterDetails?: PlayerMatchupInfo[];
+  playerDetails?: PlayerMatchupInfo[];
+}
+
+export interface PlayerMatchupInfo {
+  playerId: string;
+  name: string;
+  position?: string;
+  team?: string;
+  points: number;
+  isStarter: boolean;
 }
 
 export interface TransactionsResult {
