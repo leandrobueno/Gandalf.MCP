@@ -71,6 +71,8 @@ export interface DraftPlayerOptions {
   team?: string;
   query?: string;
   maxResults?: number;
+  includeIntelligence?: boolean;
+  scoringFormat?: 'standard' | 'ppr' | 'half-ppr';
 }
 
 export interface DraftPlayerResult {
@@ -96,4 +98,27 @@ export interface DraftPlayer {
   searchRank?: number;
   depthChartOrder?: number;
   depthChartPosition?: string;
+  intelligence?: {
+    rankings: Array<{
+      source: string;
+      rank: number;
+      tier?: number;
+      adp?: number;
+    }>;
+    recentNews: Array<{
+      headline: string;
+      impact: 'positive' | 'negative' | 'neutral';
+      publishedAt: string;
+    }>;
+    expertOpinions: Array<{
+      expert: string;
+      recommendation: 'buy' | 'hold' | 'sell' | 'avoid';
+      confidence: 'low' | 'medium' | 'high';
+    }>;
+    draftContext?: {
+      adp: number;
+      recommendationScore: number;
+      value: 'reach' | 'fair' | 'value' | 'steal';
+    };
+  };
 }

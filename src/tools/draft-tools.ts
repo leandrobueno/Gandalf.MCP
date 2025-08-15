@@ -125,6 +125,16 @@ export class DraftTools {
               type: 'integer',
               description: 'Maximum number of results to return (default 50)',
               default: 50
+            },
+            includeIntelligence: {
+              type: 'boolean',
+              description: 'Include enhanced player intelligence data (rankings, news, expert opinions)',
+              default: false
+            },
+            scoringFormat: {
+              type: 'string',
+              description: 'Scoring format for rankings (standard, ppr, half-ppr)',
+              default: 'ppr'
             }
           },
           required: ['draftId']
@@ -171,7 +181,9 @@ export class DraftTools {
           args.position,
           args.team,
           args.query,
-          args.maxResults || 50
+          args.maxResults || 50,
+          args.includeIntelligence || false,
+          args.scoringFormat || 'ppr'
         );
       
       default:
@@ -306,14 +318,18 @@ export class DraftTools {
     position?: string,
     team?: string,
     query?: string,
-    maxResults: number = 50
+    maxResults: number = 50,
+    includeIntelligence: boolean = false,
+    scoringFormat: 'standard' | 'ppr' | 'half-ppr' = 'ppr'
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
       const result = await this.draftService.getDraftAvailablePlayers(draftId, {
         position,
         team,
         query,
-        maxResults
+        maxResults,
+        includeIntelligence,
+        scoringFormat
       });
 
       const summary = `Found ${result.availablePlayers.length} available players for draft ${draftId}`;

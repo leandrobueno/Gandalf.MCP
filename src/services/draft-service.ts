@@ -1,5 +1,6 @@
 import { ISleeperApiClient } from './sleeper-api-client.js';
 import { ICacheService } from './cache-service.js';
+import { IPlayerIntelligenceService, PlayerIntelligenceOptions } from '../models/player-intelligence-models.js';
 import { SleeperDraft, SleeperDraftPick } from '../models/sleeper-models.js';
 import { 
   IDraftService, 
@@ -18,7 +19,8 @@ import {
 export class DraftService implements IDraftService {
   constructor(
     private sleeperClient: ISleeperApiClient,
-    private cacheService: ICacheService
+    private cacheService: ICacheService,
+    private playerIntelligenceService?: IPlayerIntelligenceService
   ) {}
 
   private filterDraftsBySeason(drafts: SleeperDraft[], seasonOptions: SeasonOptions): SleeperDraft[] {
@@ -95,7 +97,7 @@ export class DraftService implements IDraftService {
   }
 
   async getDraftAvailablePlayers(draftId: string, options: DraftPlayerOptions = {}): Promise<DraftPlayerResult> {
-    const { position, team, query, maxResults = 50 } = options;
+    const { position, team, query, maxResults = 50, includeIntelligence = false, scoringFormat = 'ppr' } = options;
 
     // Get all players from cache (using same caching strategy as player tools)
     const cacheKey = `players_nfl_${new Date().toISOString().split('T')[0]}`;
@@ -144,19 +146,73 @@ export class DraftService implements IDraftService {
       .sort((a, b) => (a.search_rank || 9999999) - (b.search_rank || 9999999))
       .slice(0, maxResults);
 
-    const formattedPlayers: DraftPlayer[] = availablePlayers.map(p => ({
-      playerId: p.player_id,
-      fullName: p.full_name || `${p.first_name} ${p.last_name}`,
-      position: p.position,
-      team: p.team,
-      fantasyPositions: p.fantasy_positions,
-      age: p.age,
-      yearsExp: p.years_exp,
-      injuryStatus: p.injury_status,
-      searchRank: p.search_rank,
-      depthChartOrder: p.depth_chart_order,
-      depthChartPosition: p.depth_chart_position
-    }));
+    // Build enhanced player data
+    const formattedPlayers: DraftPlayer[] = await Promise.all(
+      availablePlayers.map(async (p) => {
+        const basePlayer: DraftPlayer = {
+          playerId: p.player_id,
+          fullName: p.full_name || `${p.first_name} ${p.last_name}`,
+          position: p.position,
+          team: p.team,
+          fantasyPositions: p.fantasy_positions,
+          age: p.age,
+          yearsExp: p.years_exp,
+          injuryStatus: p.injury_status,
+          searchRank: p.search_rank,
+          depthChartOrder: p.depth_chart_order,
+          depthChartPosition: p.depth_chart_position
+        };
+
+        // Add intelligence data if requested and service is available
+        if (includeIntelligence && this.playerIntelligenceService) {
+          try {
+            const intelligenceOptions: PlayerIntelligenceOptions = {
+              includeRankings: true,
+              includeNews: true,
+              includeExpertOpinions: true,
+              includeDraftContext: true,
+              newsLimit: 3,
+              scoringFormat
+            };
+
+            const enhancedInfo = await this.playerIntelligenceService.getEnhancedPlayerInfo(
+              p.player_id, 
+              intelligenceOptions
+            );
+
+            if (enhancedInfo) {
+              basePlayer.intelligence = {
+                rankings: enhancedInfo.intelligence.rankings.map(r => ({
+                  source: r.source,
+                  rank: r.rank,
+                  tier: r.tier,
+                  adp: r.adp
+                })),
+                recentNews: enhancedInfo.intelligence.news.slice(0, 3).map(n => ({
+                  headline: n.headline,
+                  impact: n.impact,
+                  publishedAt: n.publishedAt
+                })),
+                expertOpinions: enhancedInfo.intelligence.expertOpinions.slice(0, 2).map(o => ({
+                  expert: o.expert,
+                  recommendation: o.recommendation,
+                  confidence: o.confidence
+                })),
+                draftContext: enhancedInfo.intelligence.draftContext ? {
+                  adp: enhancedInfo.intelligence.draftContext.adp,
+                  recommendationScore: enhancedInfo.intelligence.draftContext.recommendationScore,
+                  value: enhancedInfo.intelligence.draftContext.value
+                } : undefined
+              };
+            }
+          } catch (error) {
+            console.warn(`Failed to get intelligence for player ${p.player_id}:`, error);
+          }
+        }
+
+        return basePlayer;
+      })
+    );
 
     return {
       draftId,

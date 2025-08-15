@@ -12,6 +12,9 @@ import { MemoryCacheService } from './services/cache-service.js';
 import { HistoricalCacheService } from './services/historical-cache-service.js';
 import { SleeperApiClient } from './services/sleeper-api-client.js';
 import { EspnApiClient } from './services/espn-api-client.js';
+import { ESPNIntelligenceClient } from './services/espn-intelligence-client.js';
+import { FantasyProClient } from './services/fantasypros-client.js';
+import { PlayerIntelligenceService } from './services/player-intelligence-service.js';
 import { DraftService } from './services/draft-service.js';
 import { PlayerService } from './services/player-service.js';
 import { LeagueService } from './services/league-service.js';
@@ -30,6 +33,9 @@ class GandalfMcpServer {
   private readonly historicalCache: HistoricalCacheService;
   private readonly sleeperClient: SleeperApiClient;
   private espnClient: EspnApiClient;
+  private readonly espnIntelligenceClient: ESPNIntelligenceClient;
+  private readonly fantasyProClient: FantasyProClient;
+  private readonly playerIntelligenceService: PlayerIntelligenceService;
   private readonly draftService: DraftService;
   private readonly playerService: PlayerService;
   private readonly leagueService: LeagueService;
@@ -58,7 +64,19 @@ class GandalfMcpServer {
     this.sleeperClient = new SleeperApiClient();
     this.historicalCache = new HistoricalCacheService(this.sleeperClient);
     this.espnClient = new EspnApiClient();
-    this.draftService = new DraftService(this.sleeperClient, this.cacheService);
+    this.espnIntelligenceClient = new ESPNIntelligenceClient();
+    this.fantasyProClient = new FantasyProClient();
+    this.playerIntelligenceService = new PlayerIntelligenceService(
+      this.espnIntelligenceClient,
+      this.fantasyProClient,
+      this.sleeperClient,
+      this.cacheService
+    );
+    this.draftService = new DraftService(
+      this.sleeperClient, 
+      this.cacheService, 
+      this.playerIntelligenceService
+    );
     this.playerService = new PlayerService(this.sleeperClient, this.cacheService);
     this.leagueService = new LeagueService(this.sleeperClient, this.historicalCache);
     this.rosterService = new RosterService(this.sleeperClient, this.cacheService);
