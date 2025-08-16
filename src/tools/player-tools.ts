@@ -1,11 +1,23 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { IPlayerService } from '../models/player-models.js';
 
+/**
+ * Player tool handler providing fantasy football player search and analysis capabilities.
+ * Implements MCP tools for searching players, retrieving player details, and tracking trending players.
+ */
 export class PlayerTools {
+  /**
+   * Creates a new PlayerTools instance.
+   * @param playerService - Service for player data operations and searches
+   */
   constructor(
     private playerService: IPlayerService
   ) {}
 
+  /**
+   * Returns the MCP tool definitions for player-related functionality.
+   * @returns Array of tool definitions for player search, details, and trending analysis
+   */
   getToolDefinitions(): Tool[] {
     return [
       {
@@ -78,10 +90,29 @@ export class PlayerTools {
     ];
   }
 
+  /**
+   * Checks if this handler can process the specified tool name.
+   * @param toolName - The name of the tool to check
+   * @returns True if this handler supports the tool, false otherwise
+   */
   canHandle(toolName: string): boolean {
     return ['search_players', 'get_player', 'get_trending_players'].includes(toolName);
   }
 
+  /**
+   * Handles execution of player tools based on the tool name and arguments.
+   * @param name - The name of the tool to execute
+   * @param args - Arguments provided to the tool
+   * @returns Promise resolving to MCP tool response with player data
+   * @example
+   * ```typescript
+   * const result = await playerTools.handleTool('search_players', { 
+   *   query: 'mahomes', 
+   *   position: 'QB', 
+   *   maxResults: 5 
+   * });
+   * ```
+   */
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'search_players':
@@ -98,6 +129,14 @@ export class PlayerTools {
     }
   }
 
+  /**
+   * Searches for players based on provided criteria.
+   * @param query - Optional search query for player names
+   * @param position - Optional position filter (QB, RB, WR, TE, K, DEF)
+   * @param team - Optional team filter using team abbreviation
+   * @param maxResults - Maximum number of results to return
+   * @returns Promise resolving to MCP response with search results
+   */
   private async searchPlayers(
     query?: string, 
     position?: string, 
@@ -149,6 +188,11 @@ export class PlayerTools {
     }
   }
 
+  /**
+   * Retrieves detailed information about a specific player.
+   * @param playerIdOrName - Player ID or full name to search for
+   * @returns Promise resolving to MCP response with player details
+   */
   private async getPlayer(playerIdOrName: string): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
       const player = await this.playerService.getPlayer(playerIdOrName);
@@ -199,6 +243,13 @@ export class PlayerTools {
     }
   }
 
+  /**
+   * Retrieves trending players based on fantasy league activity.
+   * @param type - Type of trend to fetch ('add' for most added, 'drop' for most dropped)
+   * @param hours - Number of hours to look back for trending data
+   * @param limit - Maximum number of trending players to return
+   * @returns Promise resolving to MCP response with trending player data
+   */
   private async getTrendingPlayers(
     type: string = 'add', 
     hours: number = 24, 

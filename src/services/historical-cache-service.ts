@@ -2,17 +2,33 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { SleeperNFLState } from '../models/sleeper-models.js';
 
+/**
+ * Represents a historical cache entry with metadata.
+ * @template T - The type of the cached value
+ */
 interface HistoricalCacheEntry<T> {
+  /** The cached data value */
   value: T;
+  /** ISO string timestamp of when the data was cached */
   cachedAt: string;
+  /** Type classification for organizational purposes */
   dataType: string;
+  /** Optional season identifier */
   season?: string;
+  /** Optional week number */
   week?: number;
 }
 
+/**
+ * Interface defining the contract for historical cache service operations.
+ * Provides long-term caching specifically designed for fantasy football historical data.
+ */
 export interface IHistoricalCacheService {
+  /** Retrieves historical cached data by key */
   getHistorical<T>(key: string): Promise<T | null>;
+  /** Stores data in historical cache with metadata */
   setHistorical<T>(key: string, value: T, dataType: string, season?: string, week?: number): Promise<void>;
+  /** Gets cached data or computes and caches new data if not found */
   getOrSetHistorical<T>(
     key: string,
     factory: () => Promise<T>,
@@ -20,21 +36,36 @@ export interface IHistoricalCacheService {
     season?: string,
     week?: number
   ): Promise<T>;
+  /** Determines if data should be treated as historical */
   isHistoricalData(season: string, week?: number): Promise<boolean>;
+  /** Clears historical cache with optional pattern filtering */
   clearHistorical(pattern?: string): Promise<void>;
+  /** Retrieves current NFL season state */
   getCurrentNFLState(): Promise<SleeperNFLState | null>;
 }
 
+/**
+ * Service for managing long-term historical fantasy football data caching.
+ * Organizes cache by data type, season, and week for efficient retrieval
+ * and automatic determination of historical vs current data.
+ */
 export class HistoricalCacheService implements IHistoricalCacheService {
   private readonly cacheDir: string;
   private nflStateCache: { state: SleeperNFLState; cachedAt: number } | null = null;
   private readonly NFL_STATE_CACHE_TTL = 3600 * 1000; // 1 hour in milliseconds
 
+  /**
+   * Creates a new HistoricalCacheService instance.
+   * @param sleeperClient - Client for retrieving NFL state information
+   */
   constructor(private sleeperClient: any) {
     this.cacheDir = path.join(process.cwd(), 'cache');
     this.ensureCacheDirectories();
   }
 
+  /**
+   * Ensures all required cache directories exist, creating them if necessary.
+   */
   private ensureCacheDirectories(): void {
     const directories = [
       this.cacheDir,
@@ -55,6 +86,15 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     }
   }
 
+  /**
+   * Retrieves current NFL season state with memory caching.
+   * @returns Promise resolving to current NFL state or null if unavailable
+   * @example
+   * ```typescript
+   * const nflState = await historicalCache.getCurrentNFLState();
+   * console.log(`Current season: ${nflState?.season}, week: ${nflState?.week}`);
+   * ```
+   */
   async getCurrentNFLState(): Promise<SleeperNFLState | null> {
     // Use cached NFL state if available and not expired
     if (this.nflStateCache && 
@@ -77,6 +117,16 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     }
   }
 
+  /**
+   * Determines whether given season/week data should be treated as historical.
+   * @param season - Season year as string
+   * @param week - Optional week number
+   * @returns Promise resolving to true if data is historical, false if current
+   * @example
+   * ```typescript
+   * const isHistorical = await historicalCache.isHistoricalData('2023', 10);
+   * ```
+   */
   async isHistoricalData(season: string, week?: number): Promise<boolean> {
     const nflState = await this.getCurrentNFLState();
     if (!nflState) {
@@ -96,6 +146,14 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     return !!(season === currentSeason && week && week < currentWeek);
   }
 
+  /**
+   * Generates the file system path for a historical cache entry.
+   * @param key - Cache key identifier
+   * @param dataType - Type of data (leagues, drafts, matchups, etc.)
+   * @param season - Optional season for organization
+   * @param _week - Optional week (currently unused in path generation)
+   * @returns Full file path for the cache entry
+   */
   private getFilePath(key: string, dataType: string, season?: string, _week?: number): string {
     let filePath: string;
 
@@ -134,6 +192,15 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     return filePath;
   }
 
+  /**
+   * Retrieves data from historical cache by key.
+   * @param key - Cache key to retrieve
+   * @returns Promise resolving to cached data or null if not found
+   * @example
+   * ```typescript
+   * const matchups = await historicalCache.getHistorical<MatchupData>('league_123_week_1_matchups');
+   * ```
+   */
   async getHistorical<T>(key: string): Promise<T | null> {
     // We need to determine the data type from the key to find the right file
     const dataType = this.extractDataTypeFromKey(key);
@@ -158,6 +225,19 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     }
   }
 
+  /**
+   * Stores data in historical cache with metadata.
+   * @param key - Cache key identifier
+   * @param value - Data to cache
+   * @param dataType - Type classification for organization
+   * @param season - Optional season identifier
+   * @param week - Optional week number
+   * @returns Promise that resolves when data is cached
+   * @example
+   * ```typescript
+   * await historicalCache.setHistorical('league_123_week_1_matchups', matchupData, 'matchups', '2023', 1);
+   * ```
+   */
   async setHistorical<T>(
     key: string, 
     value: T, 
@@ -183,6 +263,25 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     }
   }
 
+  /**
+   * Gets cached data or computes and caches new data if not found.
+   * @param key - Cache key identifier
+   * @param factory - Function to compute data if cache miss
+   * @param dataType - Type classification for organization
+   * @param season - Optional season identifier
+   * @param week - Optional week number
+   * @returns Promise resolving to cached or newly computed data
+   * @example
+   * ```typescript
+   * const matchups = await historicalCache.getOrSetHistorical(
+   *   'league_123_week_1_matchups',
+   *   () => api.getMatchups('123', 1),
+   *   'matchups',
+   *   '2023',
+   *   1
+   * );
+   * ```
+   */
   async getOrSetHistorical<T>(
     key: string,
     factory: () => Promise<T>,
@@ -201,6 +300,11 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     return value;
   }
 
+  /**
+   * Extracts data type from cache key based on key patterns.
+   * @param key - Cache key to analyze
+   * @returns Data type classification
+   */
   private extractDataTypeFromKey(key: string): string {
     if (key.includes('_leagues_')) {return 'leagues';}
     if (key.startsWith('draft_')) {return 'drafts';}
@@ -210,6 +314,11 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     return 'general';
   }
 
+  /**
+   * Extracts season and week information from cache key.
+   * @param key - Cache key to parse
+   * @returns Object containing extracted season and week
+   */
   private extractSeasonWeekFromKey(key: string): { season?: string; week?: number } {
     const seasonMatch = key.match(/_(\d{4})(?:_|$)/);
     const weekMatch = key.match(/week_(\d+)/);
@@ -220,6 +329,15 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     };
   }
 
+  /**
+   * Clears historical cache data with optional pattern filtering.
+   * @param pattern - Optional pattern for selective clearing (not yet implemented)
+   * @returns Promise that resolves when clearing is complete
+   * @example
+   * ```typescript
+   * await historicalCache.clearHistorical(); // Clears all historical cache
+   * ```
+   */
   async clearHistorical(pattern?: string): Promise<void> {
     try {
       const historicalDir = path.join(this.cacheDir, 'historical');

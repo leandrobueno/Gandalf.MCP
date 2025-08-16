@@ -4,16 +4,39 @@ import {
   PlayerRankings 
 } from '../models/player-intelligence-models.js';
 
+/**
+ * Interface defining the contract for ESPN intelligence client operations.
+ * Provides player news, injury reports, and rankings from ESPN's API.
+ */
 export interface IESPNIntelligenceClient {
+  /** Retrieves player news with optional filtering */
   getPlayerNews(playerId?: string, limit?: number): Promise<PlayerNews[]>;
+  /** Retrieves current injury reports */
   getInjuryReports(): Promise<InjuryReport[]>;
+  /** Retrieves player rankings with optional position filtering */
   getPlayerRankings(position?: string): Promise<PlayerRankings[]>;
 }
 
+/**
+ * Client for retrieving fantasy football intelligence data from ESPN API.
+ * Provides access to news, injury reports, and player rankings with automatic
+ * content classification and impact assessment.
+ */
 export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
   private readonly baseUrl = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
   private readonly fantasyUrl = 'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl';
 
+  /**
+   * Retrieves recent NFL news articles from ESPN.
+   * @param playerId - Optional player ID for filtering (currently not implemented)
+   * @param limit - Maximum number of news items to return
+   * @returns Promise resolving to array of player news with impact classification
+   * @example
+   * ```typescript
+   * const news = await espnClient.getPlayerNews(undefined, 5);
+   * console.log(`Found ${news.length} news articles`);
+   * ```
+   */
   async getPlayerNews(playerId?: string, limit: number = 10): Promise<PlayerNews[]> {
     try {
       const url = `${this.baseUrl}/news`;
@@ -48,6 +71,15 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
     }
   }
 
+  /**
+   * Retrieves current injury reports from ESPN.
+   * @returns Promise resolving to array of injury reports with status mapping
+   * @example
+   * ```typescript
+   * const injuries = await espnClient.getInjuryReports();
+   * const activeInjuries = injuries.filter(i => i.status !== 'healthy');
+   * ```
+   */
   async getInjuryReports(): Promise<InjuryReport[]> {
     try {
       const url = `${this.baseUrl}/injuries`;
@@ -84,6 +116,15 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
     }
   }
 
+  /**
+   * Retrieves player rankings from ESPN fantasy API.
+   * @param position - Optional position filter (QB, RB, WR, TE)
+   * @returns Promise resolving to player rankings with ESPN source
+   * @example
+   * ```typescript
+   * const qbRankings = await espnClient.getPlayerRankings('QB');
+   * ```
+   */
   async getPlayerRankings(position?: string): Promise<PlayerRankings[]> {
     try {
       const currentYear = new Date().getFullYear();
@@ -116,6 +157,12 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
     }
   }
 
+  /**
+   * Determines the fantasy impact of news based on keyword analysis.
+   * @param headline - News headline text
+   * @param description - News description text
+   * @returns Impact classification for fantasy relevance
+   */
   private determineNewsImpact(headline: string, description: string): 'positive' | 'negative' | 'neutral' {
     const text = (headline + ' ' + description).toLowerCase();
     
@@ -133,6 +180,12 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
     return 'neutral';
   }
 
+  /**
+   * Determines the severity level of news based on keyword analysis.
+   * @param headline - News headline text
+   * @param description - News description text
+   * @returns Severity classification for fantasy impact
+   */
   private determineNewsSeverity(headline: string, description: string): 'low' | 'medium' | 'high' {
     const text = (headline + ' ' + description).toLowerCase();
     
@@ -150,6 +203,11 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
     return 'low';
   }
 
+  /**
+   * Maps ESPN injury status strings to standardized status values.
+   * @param status - Raw injury status from ESPN API
+   * @returns Standardized injury status
+   */
   private mapInjuryStatus(status: string): 'healthy' | 'questionable' | 'doubtful' | 'out' | 'ir' | 'pup' {
     const statusLower = status?.toLowerCase() || '';
     
@@ -162,6 +220,11 @@ export class ESPNIntelligenceClient implements IESPNIntelligenceClient {
     return 'healthy';
   }
 
+  /**
+   * Converts ESPN position ID to standard position abbreviation.
+   * @param positionId - ESPN's numeric position identifier
+   * @returns Standard position abbreviation (QB, RB, WR, TE, K, DST)
+   */
   private getPositionFromId(positionId: number): string {
     const positionMap: { [key: number]: string } = {
       1: 'QB',

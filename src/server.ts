@@ -27,6 +27,10 @@ import { LeagueTools } from './tools/league-tools.js';
 import { RosterTools } from './tools/roster-tools.js';
 import { DraftTools } from './tools/draft-tools.js';
 
+/**
+ * Main MCP server class for Gandalf Fantasy Football operations.
+ * Handles tool registration, request routing, and service coordination for Sleeper API integration.
+ */
 class GandalfMcpServer {
   private server: Server;
   private readonly cacheService: MemoryCacheService;
@@ -46,6 +50,10 @@ class GandalfMcpServer {
   private rosterTools: RosterTools;
   private draftTools: DraftTools;
 
+  /**
+   * Initializes the Gandalf MCP server with all required services and tools.
+   * Sets up service dependencies and tool handlers for fantasy football operations.
+   */
   constructor() {
     this.server = new Server(
       {
@@ -92,11 +100,19 @@ class GandalfMcpServer {
     this.setupLogging();
   }
 
+  /**
+   * Configures logging to redirect console outputs to stderr for MCP compatibility.
+   * Ensures proper message formatting and prevents interference with MCP protocol.
+   */
   private setupLogging(): void {
     console.log = (...args) => console.error('[INFO]', ...args);
     console.info = (...args) => console.error('[INFO]', ...args);
   }
 
+  /**
+   * Sets up MCP request handlers for tool listing and execution.
+   * Configures routing logic to delegate tool calls to appropriate service handlers.
+   */
   private setupHandlers(): void {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
@@ -207,6 +223,11 @@ class GandalfMcpServer {
     });
   }
 
+  /**
+   * Starts the MCP server with stdio transport.
+   * Establishes connection and begins listening for client requests.
+   * @throws {Error} If server fails to start or connect
+   */
   async start(): Promise<void> {
     try {
       const transport = new StdioServerTransport();
@@ -221,13 +242,21 @@ class GandalfMcpServer {
     }
   }
 
+  /**
+   * Gracefully shuts down the server and cleans up resources.
+   * Destroys cache services and logs shutdown status.
+   */
   async stop(): Promise<void> {
     this.cacheService.destroy();
     console.info('Gandalf MCP Server shutting down...');
   }
 }
 
-// Start the server
+/**
+ * Main entry point for the Gandalf MCP server.
+ * Initializes the server, sets up signal handlers for graceful shutdown, and starts listening.
+ * @throws {Error} If server initialization or startup fails
+ */
 async function main() {
   try {
     console.error('[INFO] Initializing Gandalf MCP Server...');

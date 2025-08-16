@@ -15,6 +15,10 @@ import {
 } from '../models/league-models.js';
 
 
+/**
+ * Service for managing league operations and data retrieval.
+ * Provides league information, matchups, transactions with historical data caching.
+ */
 export class LeagueService implements ILeagueService {
   constructor(
     private sleeperClient: ISleeperApiClient,
@@ -22,6 +26,16 @@ export class LeagueService implements ILeagueService {
     private playerService: IPlayerService
   ) {}
 
+  /**
+   * Retrieves all leagues for a specific user and season.
+   * @param username - Sleeper username to search for
+   * @param season - Optional season year (defaults to current season)
+   * @returns Promise resolving to user's leagues information
+   * @example
+   * ```typescript
+   * const leagues = await leagueService.getUserLeagues("john_doe", "2024");
+   * ```
+   */
   async getUserLeagues(username: string, season?: string): Promise<UserLeaguesResult> {
     // Get current season if not provided
     if (!season) {
@@ -75,6 +89,11 @@ export class LeagueService implements ILeagueService {
     };
   }
 
+  /**
+   * Gets detailed information about a specific league.
+   * @param leagueId - Unique league identifier
+   * @returns Promise resolving to league details or null if not found
+   */
   async getLeagueDetails(leagueId: string): Promise<LeagueDetails | null> {
     const league = await this.sleeperClient.getLeague(leagueId);
     if (!league) {
@@ -96,6 +115,14 @@ export class LeagueService implements ILeagueService {
     };
   }
 
+  /**
+   * Retrieves matchups for a specific league and week.
+   * @param leagueId - League identifier
+   * @param week - Week number (defaults to current week)
+   * @param includePlayerDetails - Whether to include detailed player information
+   * @param includeRosterDetails - Whether to include full roster details
+   * @returns Promise resolving to matchup information with optional player details
+   */
   async getMatchups(leagueId: string, week?: number, includePlayerDetails?: boolean, includeRosterDetails?: boolean): Promise<MatchupsResult> {
     // Get league details to determine season
     const league = await this.sleeperClient.getLeague(leagueId);
@@ -181,6 +208,12 @@ export class LeagueService implements ILeagueService {
     };
   }
 
+  /**
+   * Gets transaction history for a league and week.
+   * @param leagueId - League identifier
+   * @param week - Week number (defaults to current week)
+   * @returns Promise resolving to transaction details
+   */
   async getLeagueTransactions(leagueId: string, week?: number): Promise<TransactionsResult> {
     // Get league details to determine season
     const league = await this.sleeperClient.getLeague(leagueId);
@@ -232,6 +265,12 @@ export class LeagueService implements ILeagueService {
     };
   }
 
+  /**
+   * Enriches player data with detailed information for matchup display.
+   * @param playersPoints - Player ID to points mapping
+   * @param starters - Array of starter player IDs
+   * @returns Promise resolving to detailed player matchup information
+   */
   private async getPlayerMatchupDetails(
     playersPoints: Record<string, number>, 
     starters: string[]
@@ -260,6 +299,11 @@ export class LeagueService implements ILeagueService {
     });
   }
 
+  /**
+   * Determines scoring type based on league settings.
+   * @param scoringSettings - League scoring configuration
+   * @returns Scoring type classification (Full PPR, Half PPR, or Standard)
+   */
   private getScoringType(scoringSettings?: Record<string, number>): string {
     if (!scoringSettings) {return 'Unknown';}
     

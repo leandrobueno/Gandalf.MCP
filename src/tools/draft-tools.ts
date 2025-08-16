@@ -1,11 +1,23 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { IDraftService } from '../models/draft-models.js';
 
+/**
+ * Draft tool handler providing fantasy football draft analysis and player availability capabilities.
+ * Implements MCP tools for draft information, draft picks history, and available player tracking.
+ */
 export class DraftTools {
+  /**
+   * Creates a new DraftTools instance.
+   * @param draftService - Service for draft data operations and analysis
+   */
   constructor(
     private draftService: IDraftService
   ) {}
 
+  /**
+   * Returns the MCP tool definitions for draft-related functionality.
+   * @returns Array of tool definitions for draft information, picks, and available players
+   */
   getToolDefinitions(): Tool[] {
     return [
       {
@@ -143,6 +155,11 @@ export class DraftTools {
     ];
   }
 
+  /**
+   * Checks if this handler can process the specified tool name.
+   * @param toolName - The name of the tool to check
+   * @returns True if this handler supports the tool, false otherwise
+   */
   canHandle(toolName: string): boolean {
     return [
       'get_league_draft_information',
@@ -151,6 +168,20 @@ export class DraftTools {
     ].includes(toolName);
   }
 
+  /**
+   * Handles execution of draft tools based on the tool name and arguments.
+   * @param name - The name of the tool to execute
+   * @param args - Arguments provided to the tool
+   * @returns Promise resolving to MCP tool response with draft data
+   * @example
+   * ```typescript
+   * const result = await draftTools.handleTool('get_draft_available_players', { 
+   *   draftId: 'abc123', 
+   *   position: 'RB',
+   *   maxResults: 20 
+   * });
+   * ```
+   */
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'get_league_draft_information':
@@ -191,6 +222,15 @@ export class DraftTools {
     }
   }
 
+  /**
+   * Retrieves basic draft information for a league without picks data.
+   * @param leagueId - The unique identifier of the league
+   * @param season - Optional specific season year
+   * @param seasonStart - Optional start year for season range
+   * @param seasonEnd - Optional end year for season range  
+   * @param seasonCount - Optional number of recent seasons to include
+   * @returns Promise resolving to MCP response with draft information
+   */
   private async getLeagueDraftInformation(
     leagueId: string,
     season?: string,
@@ -239,6 +279,19 @@ export class DraftTools {
     }
   }
 
+  /**
+   * Retrieves draft picks for a league with optional filtering.
+   * @param leagueId - The unique identifier of the league
+   * @param season - Optional specific season year
+   * @param seasonStart - Optional start year for season range
+   * @param seasonEnd - Optional end year for season range
+   * @param seasonCount - Optional number of recent seasons to include
+   * @param playerId - Optional filter for specific player ID
+   * @param round - Optional filter for specific round number
+   * @param rosterId - Optional filter for specific roster/team ID
+   * @param pickedBy - Optional filter by who made the pick
+   * @returns Promise resolving to MCP response with draft picks data
+   */
   private async getLeagueDraftPicks(
     leagueId: string,
     season?: string,
@@ -313,6 +366,17 @@ export class DraftTools {
     }
   }
 
+  /**
+   * Retrieves available (undrafted) players for a specific draft.
+   * @param draftId - The unique identifier of the draft
+   * @param position - Optional position filter (QB, RB, WR, TE, K, DEF)
+   * @param team - Optional team filter using team abbreviation
+   * @param query - Optional search query for player names
+   * @param maxResults - Maximum number of results to return
+   * @param includeIntelligence - Whether to include enhanced player intelligence data
+   * @param scoringFormat - Scoring format for rankings (standard, ppr, half-ppr)
+   * @returns Promise resolving to MCP response with available players
+   */
   private async getDraftAvailablePlayers(
     draftId: string,
     position?: string,

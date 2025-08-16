@@ -13,12 +13,29 @@ import {
 } from '../models/player-models.js';
 
 
+/**
+ * Service for managing player data and search operations.
+ * Provides caching, searching, and player detail retrieval from Sleeper API.
+ */
 export class PlayerService implements IPlayerService {
   constructor(
     private sleeperClient: ISleeperApiClient,
     private cacheService: ICacheService
   ) {}
 
+  /**
+   * Searches for players based on provided criteria.
+   * @param options - Search parameters including query text, position, team filters
+   * @returns Promise resolving to search results with matched players
+   * @example
+   * ```typescript
+   * const results = await playerService.searchPlayers({ 
+   *   query: "mahomes", 
+   *   position: "QB",
+   *   maxResults: 10 
+   * });
+   * ```
+   */
   async searchPlayers(options: PlayerSearchOptions = {}): Promise<PlayerSearchResult> {
     const { query, position, team, maxResults = 20 } = options;
 
@@ -70,6 +87,16 @@ export class PlayerService implements IPlayerService {
     }
   }
 
+  /**
+   * Retrieves detailed information for a specific player.
+   * @param playerIdOrName - Player ID or full name to search for
+   * @returns Promise resolving to player details or null if not found
+   * @example
+   * ```typescript
+   * const player = await playerService.getPlayer("4034");
+   * const playerByName = await playerService.getPlayer("Patrick Mahomes");
+   * ```
+   */
   async getPlayer(playerIdOrName: string): Promise<PlayerDetails | null> {
     try {
       const allPlayers = await this.getCachedPlayers();
@@ -98,6 +125,19 @@ export class PlayerService implements IPlayerService {
     }
   }
 
+  /**
+   * Gets trending players based on add/drop activity.
+   * @param options - Trending options including type (add/drop), time period, and limit
+   * @returns Promise resolving to trending players with activity counts
+   * @example
+   * ```typescript
+   * const trending = await playerService.getTrendingPlayers({ 
+   *   type: "add", 
+   *   hours: 24, 
+   *   limit: 10 
+   * });
+   * ```
+   */
   async getTrendingPlayers(options: TrendingPlayerOptions = {}): Promise<TrendingPlayerResult> {
     const { type = 'add', hours = 24, limit = 25 } = options;
 
@@ -132,6 +172,10 @@ export class PlayerService implements IPlayerService {
     }
   }
 
+  /**
+   * Retrieves and caches all NFL players for the current day.
+   * @returns Promise resolving to all players indexed by player ID
+   */
   private async getCachedPlayers(): Promise<Record<string, SleeperPlayer>> {
     const cacheKey = `players_nfl_${new Date().toISOString().split('T')[0]}`;
     return await this.cacheService.getOrSet(
@@ -141,6 +185,11 @@ export class PlayerService implements IPlayerService {
     );
   }
 
+  /**
+   * Maps Sleeper player data to summary format.
+   * @param player - Raw Sleeper player object
+   * @returns Formatted player summary
+   */
   private mapToPlayerSummary(player: SleeperPlayer): PlayerSummary {
     return {
       playerId: player.player_id,
@@ -155,6 +204,11 @@ export class PlayerService implements IPlayerService {
     };
   }
 
+  /**
+   * Maps Sleeper player data to detailed format.
+   * @param player - Raw Sleeper player object
+   * @returns Formatted detailed player information
+   */
   private mapToPlayerDetails(player: SleeperPlayer): PlayerDetails {
     return {
       playerId: player.player_id,

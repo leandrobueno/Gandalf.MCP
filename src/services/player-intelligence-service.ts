@@ -17,7 +17,19 @@ import { IFantasyProClient } from './fantasypros-client.js';
 import { ICacheService } from './cache-service.js';
 import { ISleeperApiClient } from './sleeper-api-client.js';
 
+/**
+ * Service for aggregating comprehensive player intelligence data.
+ * Combines rankings, news, injury reports, expert opinions, and draft context
+ * from multiple fantasy football data sources to provide enhanced player insights.
+ */
 export class PlayerIntelligenceService implements IPlayerIntelligenceService {
+  /**
+   * Creates a new PlayerIntelligenceService instance.
+   * @param espnClient - Client for ESPN fantasy intelligence data
+   * @param fantasyProClient - Client for FantasyPros consensus data
+   * @param sleeperClient - Client for Sleeper API basic player data
+   * @param cacheService - Service for caching intelligence data
+   */
   constructor(
     private espnClient: IESPNIntelligenceClient,
     private fantasyProClient: IFantasyProClient,
@@ -25,6 +37,22 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     private cacheService: ICacheService
   ) {}
 
+  /**
+   * Retrieves comprehensive enhanced player information with intelligence data.
+   * @param playerId - Unique player identifier
+   * @param options - Configuration options for data inclusion and caching
+   * @returns Promise resolving to enhanced player info or null if player not found
+   * @example
+   * ```typescript
+   * const playerInfo = await playerIntelligenceService.getEnhancedPlayerInfo("4034", {
+   *   includeRankings: true,
+   *   includeNews: true,
+   *   includeDraftContext: true,
+   *   newsLimit: 3,
+   *   scoringFormat: "ppr"
+   * });
+   * ```
+   */
   async getEnhancedPlayerInfo(playerId: string, options: PlayerIntelligenceOptions = {}): Promise<EnhancedPlayerInfo | null> {
     try {
       const cacheKey = `enhanced_player_${playerId}_${JSON.stringify(options)}`;
@@ -61,6 +89,15 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     }
   }
 
+  /**
+   * Retrieves consensus player rankings from multiple sources.
+   * @param position - Optional position filter (QB, RB, WR, TE)
+   * @returns Promise resolving to aggregated player rankings
+   * @example
+   * ```typescript
+   * const rbRankings = await playerIntelligenceService.getPlayerRankings("RB");
+   * ```
+   */
   async getPlayerRankings(position?: string): Promise<PlayerRankings[]> {
     const cacheKey = `player_rankings_${position || 'all'}`;
     
@@ -88,6 +125,16 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     );
   }
 
+  /**
+   * Retrieves recent news and updates for a specific player.
+   * @param playerId - Unique player identifier
+   * @param limit - Maximum number of news items to return
+   * @returns Promise resolving to sorted player news (most recent first)
+   * @example
+   * ```typescript
+   * const news = await playerIntelligenceService.getPlayerNews("4034", 3);
+   * ```
+   */
   async getPlayerNews(playerId: string, limit: number = 5): Promise<PlayerNews[]> {
     const cacheKey = `player_news_${playerId}_${limit}`;
     
@@ -107,6 +154,16 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     );
   }
 
+  /**
+   * Retrieves injury reports for a specific player or all players.
+   * @param playerId - Optional player ID to filter reports
+   * @returns Promise resolving to injury reports
+   * @example
+   * ```typescript
+   * const allInjuries = await playerIntelligenceService.getInjuryReports();
+   * const playerInjuries = await playerIntelligenceService.getInjuryReports("4034");
+   * ```
+   */
   async getInjuryReports(playerId?: string): Promise<InjuryReport[]> {
     const cacheKey = `injury_reports_${playerId || 'all'}`;
     
@@ -125,6 +182,15 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     );
   }
 
+  /**
+   * Retrieves expert opinions and analysis for a specific player.
+   * @param playerId - Unique player identifier
+   * @returns Promise resolving to expert opinions from fantasy analysts
+   * @example
+   * ```typescript
+   * const opinions = await playerIntelligenceService.getExpertOpinions("4034");
+   * ```
+   */
   async getExpertOpinions(playerId: string): Promise<ExpertOpinion[]> {
     const cacheKey = `expert_opinions_${playerId}`;
     
@@ -138,6 +204,11 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     );
   }
 
+  /**
+   * Retrieves basic player information from Sleeper API.
+   * @param playerId - Unique player identifier
+   * @returns Promise resolving to basic player details or null if not found
+   */
   private async getBasicPlayerInfo(playerId: string): Promise<PlayerDetails | null> {
     try {
       const cacheKey = `players_nfl_${new Date().toISOString().split('T')[0]}`;
@@ -175,6 +246,13 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     }
   }
 
+  /**
+   * Aggregates intelligence data from multiple sources based on options.
+   * @param playerId - Unique player identifier
+   * @param basicPlayer - Basic player information
+   * @param options - Configuration for data inclusion
+   * @returns Promise resolving to comprehensive player intelligence
+   */
   private async gatherPlayerIntelligence(
     playerId: string, 
     basicPlayer: PlayerDetails, 
@@ -248,6 +326,12 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     return intelligence;
   }
 
+  /**
+   * Generates draft context information including ADP, value assessment, and recommendations.
+   * @param playerId - Unique player identifier
+   * @param basicPlayer - Basic player information
+   * @returns Promise resolving to draft context or undefined if data unavailable
+   */
   private async generateDraftContext(playerId: string, basicPlayer: PlayerDetails): Promise<DraftContext | undefined> {
     try {
       const adpData = await this.fantasyProClient.getADP(basicPlayer.position);
@@ -275,6 +359,12 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     }
   }
 
+  /**
+   * Calculates a recommendation score based on player attributes and ADP.
+   * @param player - Player details
+   * @param adp - Average draft position
+   * @returns Recommendation score (0-100, higher is better)
+   */
   private calculateRecommendationScore(player: PlayerDetails, adp: number): number {
     let score = 50; // Base score
 
@@ -296,6 +386,12 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     return Math.max(0, Math.min(100, score));
   }
 
+  /**
+   * Determines draft value assessment based on ADP vs position ranking.
+   * @param adp - Average draft position
+   * @param positionRank - Position-based ranking
+   * @returns Value assessment classification
+   */
   private determineValue(adp: number, positionRank: number): 'reach' | 'fair' | 'value' | 'steal' {
     const expectedADP = positionRank * 3; // Rough estimate
     const difference = adp - expectedADP;
@@ -306,6 +402,10 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     return 'value';
   }
 
+  /**
+   * Creates empty projection structure for players without projection data.
+   * @returns Empty player projections object
+   */
   private createEmptyProjections(): PlayerProjections {
     return {
       source: 'none',
@@ -315,6 +415,10 @@ export class PlayerIntelligenceService implements IPlayerIntelligenceService {
     };
   }
 
+  /**
+   * Creates empty trends structure for players without trend data.
+   * @returns Empty player trends object
+   */
   private createEmptyTrends(): PlayerTrends {
     return {
       adpTrend: {

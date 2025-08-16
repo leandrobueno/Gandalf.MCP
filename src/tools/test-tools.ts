@@ -1,6 +1,14 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 
+/**
+ * Test tool handler providing basic connectivity and server status verification.
+ * Implements MCP tools for testing server functionality and retrieving server information.
+ */
 export class TestTools {
+  /**
+   * Returns the MCP tool definitions for test functionality.
+   * @returns Array of tool definitions for test operations
+   */
   getToolDefinitions(): Tool[] {
     return [
       {
@@ -28,10 +36,25 @@ export class TestTools {
     ];
   }
 
+  /**
+   * Checks if this handler can process the specified tool name.
+   * @param toolName - The name of the tool to check
+   * @returns True if this handler supports the tool, false otherwise
+   */
   canHandle(toolName: string): boolean {
     return ['test_connection', 'get_server_info'].includes(toolName);
   }
 
+  /**
+   * Handles execution of test tools based on the tool name and arguments.
+   * @param name - The name of the tool to execute
+   * @param args - Arguments provided to the tool
+   * @returns Promise resolving to MCP tool response with test results
+   * @example
+   * ```typescript
+   * const result = await testTools.handleTool('test_connection', { message: 'Hello World' });
+   * ```
+   */
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'test_connection':
@@ -45,6 +68,11 @@ export class TestTools {
     }
   }
 
+  /**
+   * Tests server connectivity by echoing back a message with server status.
+   * @param message - Test message to echo back
+   * @returns MCP response with success status and echoed message
+   */
   private testConnection(message: string): { content: Array<{ type: string; text: string }> } {
     const response = `Gandalf MCP Server (TypeScript) is working! Your message: ${message}`;
     
@@ -62,6 +90,10 @@ export class TestTools {
     };
   }
 
+  /**
+   * Retrieves comprehensive server information including version, capabilities, and status.
+   * @returns MCP response with detailed server information and capabilities
+   */
   private getServerInfo(): { content: Array<{ type: string; text: string }> } {
     const serverInfo = {
       serverName: 'Gandalf',

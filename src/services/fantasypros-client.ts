@@ -4,16 +4,39 @@ import {
   PlayerTrends 
 } from '../models/player-intelligence-models.js';
 
+/**
+ * Interface defining the contract for FantasyPros client operations.
+ * Provides consensus rankings, expert opinions, player trends, and ADP data.
+ */
 export interface IFantasyProClient {
+  /** Retrieves consensus rankings with scoring format options */
   getConsensusRankings(position?: string, scoringFormat?: 'standard' | 'ppr' | 'half-ppr'): Promise<PlayerRankings[]>;
+  /** Retrieves expert opinions for a specific player */
   getExpertOpinions(playerId: string): Promise<ExpertOpinion[]>;
+  /** Retrieves player trend data including ADP and ownership */
   getPlayerTrends(playerId: string): Promise<PlayerTrends | null>;
+  /** Retrieves average draft position data */
   getADP(position?: string): Promise<{ playerId: string; adp: number; }[]>;
 }
 
+/**
+ * Client for retrieving fantasy football data from FantasyPros.
+ * Scrapes and parses consensus rankings, expert analysis, and draft data
+ * to provide comprehensive player evaluation insights.
+ */
 export class FantasyProClient implements IFantasyProClient {
   private readonly baseUrl = 'https://www.fantasypros.com/nfl';
 
+  /**
+   * Retrieves consensus fantasy football rankings from FantasyPros.
+   * @param position - Optional position filter (QB, RB, WR, TE)
+   * @param scoringFormat - Scoring system for rankings (standard, ppr, half-ppr)
+   * @returns Promise resolving to consensus rankings with tier and ADP data
+   * @example
+   * ```typescript
+   * const pprRankings = await fantasyProClient.getConsensusRankings('RB', 'ppr');
+   * ```
+   */
   async getConsensusRankings(position?: string, scoringFormat: 'standard' | 'ppr' | 'half-ppr' = 'ppr'): Promise<PlayerRankings[]> {
     try {
       const positionParam = position ? `?position=${position.toLowerCase()}` : '';
@@ -45,6 +68,15 @@ export class FantasyProClient implements IFantasyProClient {
     }
   }
 
+  /**
+   * Retrieves expert opinions and analysis for a specific player.
+   * @param playerId - Unique player identifier
+   * @returns Promise resolving to expert opinions with recommendations
+   * @example
+   * ```typescript
+   * const opinions = await fantasyProClient.getExpertOpinions('player123');
+   * ```
+   */
   async getExpertOpinions(playerId: string): Promise<ExpertOpinion[]> {
     try {
       const url = `${this.baseUrl}/nfl/analysis/player/${playerId}`;
@@ -63,6 +95,18 @@ export class FantasyProClient implements IFantasyProClient {
     }
   }
 
+  /**
+   * Retrieves trending data for a player including ADP and ownership changes.
+   * @param playerId - Unique player identifier
+   * @returns Promise resolving to trend data or null if unavailable
+   * @example
+   * ```typescript
+   * const trends = await fantasyProClient.getPlayerTrends('player123');
+   * if (trends?.adpTrend.direction === 'rising') {
+   *   console.log('Player ADP is trending up');
+   * }
+   * ```
+   */
   async getPlayerTrends(playerId: string): Promise<PlayerTrends | null> {
     try {
       const url = `${this.baseUrl}/nfl/trends/player/${playerId}`;
@@ -81,6 +125,15 @@ export class FantasyProClient implements IFantasyProClient {
     }
   }
 
+  /**
+   * Retrieves average draft position data for players.
+   * @param position - Optional position filter
+   * @returns Promise resolving to ADP data with player mappings
+   * @example
+   * ```typescript
+   * const qbADP = await fantasyProClient.getADP('QB');
+   * ```
+   */
   async getADP(position?: string): Promise<{ playerId: string; adp: number; }[]> {
     try {
       const positionParam = position ? `?position=${position.toLowerCase()}` : '';
@@ -100,6 +153,12 @@ export class FantasyProClient implements IFantasyProClient {
     }
   }
 
+  /**
+   * Parses player rankings from FantasyPros HTML content.
+   * @param html - Raw HTML content from rankings page
+   * @param _scoringFormat - Scoring format (currently unused)
+   * @returns Array of parsed rankings with position, tier, and ADP data
+   */
   private parseRankingsFromHtml(html: string, _scoringFormat: string): Array<{position: string; tier: number; adp: number}> {
     const rankings: Array<{position: string; tier: number; adp: number}> = [];
     
@@ -140,6 +199,11 @@ export class FantasyProClient implements IFantasyProClient {
     return rankings;
   }
 
+  /**
+   * Parses expert opinions from FantasyPros HTML content.
+   * @param html - Raw HTML content from player analysis page
+   * @returns Array of parsed expert opinions with recommendations
+   */
   private parseExpertOpinionsFromHtml(html: string): ExpertOpinion[] {
     const opinions: ExpertOpinion[] = [];
     
@@ -171,6 +235,11 @@ export class FantasyProClient implements IFantasyProClient {
     return opinions;
   }
 
+  /**
+   * Parses player trend data from FantasyPros HTML content.
+   * @param html - Raw HTML content from trends page
+   * @returns Parsed trend data or null if parsing fails
+   */
   private parseTrendsFromHtml(html: string): PlayerTrends | null {
     try {
       const adpTrendRegex = /ADP.*?([+-]?\d+\.?\d*)/i;
@@ -206,6 +275,11 @@ export class FantasyProClient implements IFantasyProClient {
     }
   }
 
+  /**
+   * Parses ADP data from FantasyPros HTML content.
+   * @param html - Raw HTML content from ADP page
+   * @returns Array of player ADP data
+   */
   private parseADPFromHtml(html: string): { playerId: string; adp: number; }[] {
     const adpData: { playerId: string; adp: number; }[] = [];
     
@@ -248,11 +322,21 @@ export class FantasyProClient implements IFantasyProClient {
     return adpData;
   }
 
+  /**
+   * Extracts position abbreviation from text content.
+   * @param text - Text content to search for position
+   * @returns Position abbreviation or empty string
+   */
   private extractPosition(text: string): string {
     const positionMatch = /\b(QB|RB|WR|TE|K|DST)\b/i.exec(text);
     return positionMatch ? positionMatch[1].toUpperCase() : '';
   }
 
+  /**
+   * Determines recommendation type based on opinion content.
+   * @param opinion - Expert opinion text
+   * @returns Recommendation classification
+   */
   private determineRecommendation(opinion: string): 'buy' | 'hold' | 'sell' | 'avoid' {
     const opinionLower = opinion.toLowerCase();
     
@@ -271,6 +355,11 @@ export class FantasyProClient implements IFantasyProClient {
     return 'hold';
   }
 
+  /**
+   * Generates a simple player ID from player name.
+   * @param name - Player's full name
+   * @returns Normalized player identifier
+   */
   private generatePlayerIdFromName(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
   }

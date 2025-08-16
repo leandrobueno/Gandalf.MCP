@@ -15,14 +15,30 @@ import {
   DraftPlayer 
 } from '../models/draft-models.js';
 
-
+/**
+ * Service for managing draft operations and player analysis.
+ * Provides comprehensive draft information, available players, pick history,
+ * and enhanced player intelligence for draft decision making.
+ */
 export class DraftService implements IDraftService {
+  /**
+   * Creates a new DraftService instance.
+   * @param sleeperClient - Client for Sleeper API operations
+   * @param cacheService - Service for caching frequently accessed data
+   * @param playerIntelligenceService - Optional service for enhanced player analysis
+   */
   constructor(
     private sleeperClient: ISleeperApiClient,
     private cacheService: ICacheService,
     private playerIntelligenceService?: IPlayerIntelligenceService
   ) {}
 
+  /**
+   * Filters drafts by season criteria with priority order.
+   * @param drafts - Array of draft objects to filter
+   * @param seasonOptions - Season filtering criteria
+   * @returns Filtered array of drafts matching the season criteria
+   */
   private filterDraftsBySeason(drafts: SleeperDraft[], seasonOptions: SeasonOptions): SleeperDraft[] {
     const { season, seasonStart, seasonEnd, seasonCount } = seasonOptions;
     
@@ -59,6 +75,16 @@ export class DraftService implements IDraftService {
     return drafts;
   }
 
+  /**
+   * Retrieves comprehensive draft information for a league's most recent draft.
+   * @param leagueId - Unique league identifier
+   * @returns Promise resolving to complete draft information including all picks
+   * @example
+   * ```typescript
+   * const draftInfo = await draftService.getLeagueDraft("123456789");
+   * console.log(`Draft has ${draftInfo.totalPicks} picks`);
+   * ```
+   */
   async getLeagueDraft(leagueId: string): Promise<DraftInfo> {
     // Get drafts for the league
     const drafts = await this.sleeperClient.getLeagueDrafts(leagueId);
@@ -96,6 +122,21 @@ export class DraftService implements IDraftService {
     };
   }
 
+  /**
+   * Retrieves available players for a draft with optional intelligence enhancement.
+   * @param draftId - Unique draft identifier
+   * @param options - Options for filtering and enhancing player data
+   * @returns Promise resolving to available players with optional intelligence data
+   * @example
+   * ```typescript
+   * const availablePlayers = await draftService.getDraftAvailablePlayers("draft123", {
+   *   position: "RB",
+   *   maxResults: 20,
+   *   includeIntelligence: true,
+   *   scoringFormat: "ppr"
+   * });
+   * ```
+   */
   async getDraftAvailablePlayers(draftId: string, options: DraftPlayerOptions = {}): Promise<DraftPlayerResult> {
     const { position, team, query, maxResults = 50, includeIntelligence = false, scoringFormat = 'ppr' } = options;
 
@@ -226,6 +267,18 @@ export class DraftService implements IDraftService {
     };
   }
 
+  /**
+   * Gets basic draft information for a league with season filtering.
+   * @param leagueId - Unique league identifier
+   * @param seasonOptions - Optional season filtering criteria
+   * @returns Promise resolving to draft information metadata
+   * @example
+   * ```typescript
+   * const draftInfo = await draftService.getLeagueDraftInformation("league123", {
+   *   season: "2024"
+   * });
+   * ```
+   */
   async getLeagueDraftInformation(leagueId: string, seasonOptions: SeasonOptions = {}): Promise<DraftInformation> {
     // Get drafts for the league
     const drafts = await this.sleeperClient.getLeagueDrafts(leagueId);
@@ -265,6 +318,20 @@ export class DraftService implements IDraftService {
     };
   }
 
+  /**
+   * Retrieves draft picks for a league with comprehensive filtering options.
+   * @param leagueId - Unique league identifier
+   * @param options - Filtering options for picks (season, player, round, etc.)
+   * @returns Promise resolving to filtered draft picks with metadata
+   * @example
+   * ```typescript
+   * const picks = await draftService.getLeagueDraftPicks("league123", {
+   *   season: "2024",
+   *   round: 1,
+   *   position: "QB"
+   * });
+   * ```
+   */
   async getLeagueDraftPicks(leagueId: string, options: DraftPicksOptions = {}): Promise<DraftPicksResult> {
     const { season, seasonStart, seasonEnd, seasonCount, playerId, round, rosterId, pickedBy } = options;
 

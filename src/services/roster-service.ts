@@ -3,13 +3,34 @@ import {ICacheService} from './cache-service.js';
 import {SleeperPlayer, SleeperUser} from '../models/sleeper-models.js';
 import {AllRostersResult, IRosterService, PlayerInfo, RosterDetails, RosterSummary} from '../models/roster-models.js';
 
-
+/**
+ * Service for managing roster operations and player information.
+ * Provides roster summaries, detailed roster information, standings, and player details.
+ */
 export class RosterService implements IRosterService {
+  /**
+   * Creates a new RosterService instance.
+   * @param sleeperClient - Client for Sleeper API operations
+   * @param cacheService - Service for caching player data
+   */
   constructor(
     private sleeperClient: ISleeperApiClient,
     private cacheService: ICacheService
   ) {}
 
+  /**
+   * Retrieves all rosters in a league with standings and summary information.
+   * @param leagueId - Unique league identifier
+   * @returns Promise resolving to all rosters with standings sorted by record
+   * @example
+   * ```typescript
+   * const rosters = await rosterService.getAllRosters("league123");
+   * console.log(`League has ${rosters.totalRosters} teams`);
+   * rosters.rosters.forEach(roster => {
+   *   console.log(`${roster.ownerUsername}: ${roster.wins}-${roster.losses}`);
+   * });
+   * ```
+   */
   async getAllRosters(leagueId: string): Promise<AllRostersResult> {
     const [rosters, users, league] = await Promise.all([
       this.sleeperClient.getRosters(leagueId),
@@ -63,6 +84,22 @@ export class RosterService implements IRosterService {
     };
   }
 
+  /**
+   * Retrieves detailed roster information for a specific team.
+   * @param leagueId - Unique league identifier
+   * @param rosterIdOrUsername - Roster ID, username, or display name to search for
+   * @returns Promise resolving to detailed roster info or null if not found
+   * @example
+   * ```typescript
+   * const roster = await rosterService.getRoster("league123", "john_doe");
+   * if (roster) {
+   *   console.log(`${roster.owner?.username} has ${roster.starters.length} starters`);
+   *   roster.starters.forEach(player => {
+   *     console.log(`${player.fullName} (${player.position})`);
+   *   });
+   * }
+   * ```
+   */
   async getRoster(leagueId: string, rosterIdOrUsername: string): Promise<RosterDetails | null> {
     const [rosters, users] = await Promise.all([
       this.sleeperClient.getRosters(leagueId),
@@ -137,6 +174,10 @@ export class RosterService implements IRosterService {
     };
   }
 
+  /**
+   * Retrieves and caches all NFL players for the current day.
+   * @returns Promise resolving to all players indexed by player ID
+   */
   private async getCachedPlayers(): Promise<Record<string, SleeperPlayer>> {
     const cacheKey = `players_nfl_${new Date().toISOString().split('T')[0]}`;
     return await this.cacheService.getOrSet(

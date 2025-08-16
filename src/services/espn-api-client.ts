@@ -7,15 +7,31 @@ import {
   EspnAthlete
 } from '../models/espn-models.js';
 
+/**
+ * Interface defining the contract for ESPN API client operations.
+ * Provides access to ESPN's NFL data including injury reports, news, and athlete information.
+ */
 export interface IEspnApiClient {
+  /** Retrieves injury reports with optional team filtering */
   getInjuryReports(teamAbbreviation?: string): Promise<EspnInjuryReport[]>;
+  /** Retrieves news articles with optional team and limit filtering */
   getNews(teamId?: string, limit?: number): Promise<EspnNewsItem[]>;
+  /** Retrieves detailed athlete information */
   getAthlete(athleteId: string): Promise<EspnAthlete | null>;
 }
 
+/**
+ * HTTP client for accessing ESPN's public API.
+ * Provides access to NFL injury reports, news articles, and athlete data
+ * with robust error handling and logging capabilities.
+ */
 export class EspnApiClient implements IEspnApiClient {
   private httpClient: AxiosInstance;
 
+  /**
+   * Creates a new EspnApiClient instance with configured HTTP settings.
+   * Sets up axios client with ESPN API base URL, headers, and timeout.
+   */
   constructor() {
     this.httpClient = axios.create({
       baseURL: 'https://site.api.espn.com/',
@@ -27,6 +43,16 @@ export class EspnApiClient implements IEspnApiClient {
     });
   }
 
+  /**
+   * Retrieves NFL injury reports from ESPN API.
+   * @param teamAbbreviation - Optional team abbreviation to filter results (e.g., 'KC', 'DAL')
+   * @returns Promise resolving to array of injury reports
+   * @example
+   * ```typescript
+   * const allInjuries = await espnClient.getInjuryReports();
+   * const chiefsInjuries = await espnClient.getInjuryReports('KC');
+   * ```
+   */
   async getInjuryReports(teamAbbreviation?: string): Promise<EspnInjuryReport[]> {
     try {
       let endpoint = 'apis/site/v2/sports/football/nfl/injuries';
@@ -47,6 +73,17 @@ export class EspnApiClient implements IEspnApiClient {
     }
   }
 
+  /**
+   * Retrieves NFL news articles from ESPN API.
+   * @param teamId - Optional team ID to filter news to specific team
+   * @param limit - Maximum number of articles to return (default 20)
+   * @returns Promise resolving to array of news articles
+   * @example
+   * ```typescript
+   * const generalNews = await espnClient.getNews(undefined, 10);
+   * const teamNews = await espnClient.getNews('kc', 5);
+   * ```
+   */
   async getNews(teamId?: string, limit: number = 20): Promise<EspnNewsItem[]> {
     try {
       let endpoint = 'apis/site/v2/sports/football/nfl/news';
@@ -83,6 +120,16 @@ export class EspnApiClient implements IEspnApiClient {
     }
   }
 
+  /**
+   * Retrieves detailed athlete information from ESPN API.
+   * @param athleteId - ESPN's unique athlete identifier
+   * @returns Promise resolving to athlete data or null if not found
+   * @example
+   * ```typescript
+   * const athlete = await espnClient.getAthlete('3139477');
+   * console.log(athlete?.displayName);
+   * ```
+   */
   async getAthlete(athleteId: string): Promise<EspnAthlete | null> {
     try {
       const endpoint = `apis/site/v2/sports/football/nfl/athletes/${athleteId}`;
