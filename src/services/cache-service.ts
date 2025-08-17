@@ -41,14 +41,26 @@ export interface ICacheService {
 }
 
 /**
+ * LRU cache entry with additional tracking for eviction strategy.
+ * @template T - The type of the cached value
+ */
+interface LRUCacheEntry<T> extends CacheEntry<T> {
+  /** Last access timestamp for LRU eviction */
+  lastAccessed: number;
+}
+
+/**
  * A two-tier caching service that uses both memory and file system storage.
  * Provides fast memory access for frequently used data with persistent file backup.
  * Automatically handles cache expiration and cleanup for both storage tiers.
+ * Implements LRU eviction when cache size limits are exceeded.
  */
 export class MemoryCacheService implements ICacheService {
-  private cache = new Map<string, CacheEntry<any>>();
+  private cache = new Map<string, LRUCacheEntry<any>>();
   private readonly cleanupInterval: NodeJS.Timeout;
   private readonly cacheDir: string;
+  private readonly maxCacheSize: number = 1000; // Maximum number of entries in memory
+  private readonly enableVerboseLogging: boolean = false; // Reduce logging in production
 
   /**
    * Creates a new MemoryCacheService instance.
@@ -61,7 +73,9 @@ export class MemoryCacheService implements ICacheService {
   constructor() {
     // Set up cache directory
     this.cacheDir = path.join(process.cwd(), 'cache');
-    this.ensureCacheDirectory();
+    this.ensureCacheDirectory().catch(error => {
+      console.error('Error creating cache directory:', error);
+    });
     
     // Clean up expired entries every 5 minutes
     this.cleanupInterval = setInterval(() => {
@@ -74,11 +88,16 @@ export class MemoryCacheService implements ICacheService {
 
   /**
    * Ensures the cache directory exists, creating it if necessary.
+   * Uses async file operations to avoid blocking the event loop.
    */
-  private ensureCacheDirectory(): void {
-    if (!fs.existsSync(this.cacheDir)) {
-      fs.mkdirSync(this.cacheDir, { recursive: true });
-      console.error(`Created cache directory: ${this.cacheDir}`);
+  private async ensureCacheDirectory(): Promise<void> {
+    try {
+      await fs.promises.access(this.cacheDir);
+    } catch {
+      await fs.promises.mkdir(this.cacheDir, { recursive: true });
+      if (this.enableVerboseLogging) {
+        console.error(`Created cache directory: ${this.cacheDir}`);
+      }
     }
   }
 
@@ -100,11 +119,12 @@ export class MemoryCacheService implements ICacheService {
     
     if (entry) {
       if (entry.expiresAt > new Date()) {
-        console.error(`Memory cache hit for key: ${key}`);
+        // Update last accessed time for LRU
+        entry.lastAccessed = Date.now();
+        this.cache.set(key, entry); // Move to end of Map for LRU
         return entry.value as T;
       }
       
-      console.error(`Memory cache expired for key: ${key}`);
       this.cache.delete(key);
     }
     
@@ -116,17 +136,19 @@ export class MemoryCacheService implements ICacheService {
       
       if (remainingSeconds > 0) {
         // Only store in memory if not already expired
-        const memoryEntry: CacheEntry<T> = {
+        const memoryEntry: LRUCacheEntry<T> = {
           value: fileEntry.value,
-          expiresAt: fileEntry.expiresAt
+          expiresAt: fileEntry.expiresAt,
+          lastAccessed: Date.now()
         };
+        
+        // Ensure cache size limit before adding
+        this.enforceCacheSize();
         this.cache.set(key, memoryEntry);
-        console.error(`File cache hit for key: ${key}, loaded into memory with ${remainingSeconds}s remaining`);
         return fileEntry.value;
       }
     }
     
-    console.error(`Cache miss (both memory and file) for key: ${key}`);
     return null;
   }
 
@@ -144,18 +166,19 @@ export class MemoryCacheService implements ICacheService {
   async set<T>(key: string, value: T, expirationSeconds: number): Promise<void> {
     const expiresAt = new Date(Date.now() + expirationSeconds * 1000);
     
-    // Set in memory cache
-    const entry: CacheEntry<T> = {
+    // Set in memory cache with LRU tracking
+    const entry: LRUCacheEntry<T> = {
       value,
-      expiresAt
+      expiresAt,
+      lastAccessed: Date.now()
     };
     
+    // Ensure cache size limit before adding
+    this.enforceCacheSize();
     this.cache.set(key, entry);
     
     // Set in file cache (especially important for large data like players)
     await this.saveToFile(key, value, expiresAt);
-    
-    console.error(`Cache set for key: ${key}, expires at: ${expiresAt.toISOString()}`);
   }
 
   /**
@@ -192,7 +215,9 @@ export class MemoryCacheService implements ICacheService {
    */
   clear(): void {
     this.cache.clear();
-    console.error('Cache cleared');
+    if (this.enableVerboseLogging) {
+      console.error('Cache cleared');
+    }
   }
 
   /**
@@ -210,8 +235,31 @@ export class MemoryCacheService implements ICacheService {
     
     keysToDelete.forEach(key => this.cache.delete(key));
     
-    if (keysToDelete.length > 0) {
+    if (keysToDelete.length > 0 && this.enableVerboseLogging) {
       console.error(`Cleaned up ${keysToDelete.length} expired cache entries`);
+    }
+  }
+
+  /**
+   * Enforces cache size limits using LRU eviction strategy.
+   * Removes least recently used entries when cache exceeds maximum size.
+   */
+  private enforceCacheSize(): void {
+    if (this.cache.size >= this.maxCacheSize) {
+      // Find least recently used entry
+      let oldestKey: string | null = null;
+      let oldestTime = Date.now();
+      
+      for (const [key, entry] of this.cache.entries()) {
+        if (entry.lastAccessed < oldestTime) {
+          oldestTime = entry.lastAccessed;
+          oldestKey = key;
+        }
+      }
+      
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
     }
   }
 
@@ -255,7 +303,9 @@ export class MemoryCacheService implements ICacheService {
 
       const filePath = this.getFilePath(key);
       await fs.promises.writeFile(filePath, JSON.stringify(fileCacheEntry), 'utf8');
-      console.error(`Saved to file cache: ${filePath}`);
+      if (this.enableVerboseLogging) {
+        console.error(`Saved to file cache: ${filePath}`);
+      }
     } catch (error) {
       console.warn(`Failed to save cache to file for key ${key}:`, error);
     }
@@ -270,7 +320,10 @@ export class MemoryCacheService implements ICacheService {
     try {
       const filePath = this.getFilePath(key);
       
-      if (!fs.existsSync(filePath)) {
+      // Use async stat instead of sync existsSync
+      try {
+        await fs.promises.access(filePath);
+      } catch {
         return null;
       }
 
@@ -279,7 +332,9 @@ export class MemoryCacheService implements ICacheService {
       
       const expiresAt = new Date(fileCacheEntry.expiresAt);
       if (expiresAt <= new Date()) {
-        console.error(`File cache expired for key: ${key}`);
+        if (this.enableVerboseLogging) {
+          console.error(`File cache expired for key: ${key}`);
+        }
         // Delete expired file
         await fs.promises.unlink(filePath).catch(() => {});
         return null;
@@ -321,7 +376,7 @@ export class MemoryCacheService implements ICacheService {
         }
       }
 
-      if (cleanedCount > 0) {
+      if (cleanedCount > 0 && this.enableVerboseLogging) {
         console.error(`Cleaned up ${cleanedCount} expired cache files`);
       }
     } catch (error) {

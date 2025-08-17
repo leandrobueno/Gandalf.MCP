@@ -20,6 +20,10 @@ import {
  * Provides league information, matchups, transactions with historical data caching.
  */
 export class LeagueService implements ILeagueService {
+  // Object pools for frequently created objects
+  private readonly leagueSummaryPool: LeagueSummary[] = [];
+  private readonly userSummaryPool: any[] = [];
+
   constructor(
     private sleeperClient: ISleeperApiClient,
     private historicalCache: IHistoricalCacheService,
@@ -67,22 +71,26 @@ export class LeagueService implements ILeagueService {
       leagues = await this.sleeperClient.getUserLeagues(user.user_id, 'nfl', season);
     }
     
-    const leagueSummaries: LeagueSummary[] = leagues.map(league => ({
-      leagueId: league.league_id,
-      name: league.name,
-      season: league.season,
-      status: league.status,
-      totalRosters: league.total_rosters,
-      scoringType: this.getScoringType(league.scoring_settings),
-      draftStatus: 'Unknown' // Would need to fetch draft info separately
-    }));
+    // Use object pooling for better memory efficiency
+    const leagueSummaries: LeagueSummary[] = leagues.map(league => {
+      const summary = this.getPooledLeagueSummary();
+      summary.leagueId = league.league_id;
+      summary.name = league.name;
+      summary.season = league.season;
+      summary.status = league.status;
+      summary.totalRosters = league.total_rosters;
+      summary.scoringType = this.getScoringType(league.scoring_settings);
+      summary.draftStatus = 'Unknown'; // Would need to fetch draft info separately
+      return summary;
+    });
+
+    const userSummary = this.getPooledUserSummary();
+    userSummary.userId = user.user_id;
+    userSummary.username = user.username;
+    userSummary.displayName = user.display_name;
 
     return {
-      user: {
-        userId: user.user_id,
-        username: user.username,
-        displayName: user.display_name
-      },
+      user: userSummary,
       season,
       totalLeagues: leagues.length,
       leagues: leagueSummaries
@@ -267,6 +275,7 @@ export class LeagueService implements ILeagueService {
 
   /**
    * Enriches player data with detailed information for matchup display.
+   * Uses batch lookup to avoid N+1 query problem.
    * @param playersPoints - Player ID to points mapping
    * @param starters - Array of starter player IDs
    * @returns Promise resolving to detailed player matchup information
@@ -275,10 +284,15 @@ export class LeagueService implements ILeagueService {
     playersPoints: Record<string, number>, 
     starters: string[]
   ): Promise<PlayerMatchupInfo[]> {
+    const playerIds = Object.keys(playersPoints);
+    
+    // Batch lookup all players at once to avoid N+1 problem
+    const playersMap = await this.playerService.getPlayersBatch(playerIds);
+    
     const playerDetails: PlayerMatchupInfo[] = [];
     
     for (const [playerId, points] of Object.entries(playersPoints)) {
-      const player = await this.playerService.getPlayer(playerId);
+      const player = playersMap.get(playerId);
       const isStarter = starters.includes(playerId);
       
       playerDetails.push({
@@ -297,6 +311,52 @@ export class LeagueService implements ILeagueService {
       if (!a.isStarter && b.isStarter) {return 1;}
       return b.points - a.points;
     });
+  }
+
+  /**
+   * Gets a pooled LeagueSummary object to reduce object allocation.
+   * @returns Reusable LeagueSummary object
+   */
+  private getPooledLeagueSummary(): LeagueSummary {
+    if (this.leagueSummaryPool.length > 0) {
+      return this.leagueSummaryPool.pop()!;
+    }
+    return {} as LeagueSummary;
+  }
+
+  /**
+   * Gets a pooled user summary object to reduce object allocation.
+   * @returns Reusable user summary object
+   */
+  private getPooledUserSummary(): any {
+    if (this.userSummaryPool.length > 0) {
+      return this.userSummaryPool.pop()!;
+    }
+    return {};
+  }
+
+  /**
+   * Returns objects to their respective pools for reuse.
+   * Call this after processing results to enable object reuse.
+   * @param leagueSummaries - Array of league summaries to return to pool
+   * @param userSummary - User summary to return to pool
+   */
+  private returnObjectsToPool(leagueSummaries: LeagueSummary[], userSummary: any): void {
+    // Clear objects and return to pool for reuse
+    for (const summary of leagueSummaries) {
+      // Clear object properties
+      Object.keys(summary).forEach(key => delete (summary as any)[key]);
+      if (this.leagueSummaryPool.length < 100) { // Limit pool size
+        this.leagueSummaryPool.push(summary);
+      }
+    }
+    
+    if (userSummary) {
+      Object.keys(userSummary).forEach(key => delete userSummary[key]);
+      if (this.userSummaryPool.length < 20) { // Limit pool size
+        this.userSummaryPool.push(userSummary);
+      }
+    }
   }
 
   /**

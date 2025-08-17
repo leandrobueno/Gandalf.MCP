@@ -22,7 +22,7 @@ export class PlayerTools {
     return [
       {
         name: 'search_players',
-        description: 'Search for NFL players by name, position, or team',
+        description: 'Search for NFL players by name, position, or team. Returns concise results by default - use detailed=true for full info.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -43,15 +43,20 @@ export class PlayerTools {
             },
             maxResults: {
               type: 'integer',
-              description: 'Maximum number of results to return (default 20)',
-              default: 20
+              description: 'Maximum number of results to return (default 10, max 50)',
+              default: 10
+            },
+            detailed: {
+              type: 'boolean',
+              description: 'Return full player details (default false for token efficiency)',
+              default: false
             }
           }
         }
       },
       {
         name: 'get_player',
-        description: 'Get detailed information about a specific player by ID or name',
+        description: 'Get detailed information about a specific player by ID or name. Returns complete player profile.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -65,7 +70,7 @@ export class PlayerTools {
       },
       {
         name: 'get_trending_players',
-        description: 'Get trending players based on adds or drops in fantasy leagues',
+        description: 'Get trending players based on adds or drops in fantasy leagues. Returns concise results by default.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -81,8 +86,13 @@ export class PlayerTools {
             },
             limit: {
               type: 'integer',
-              description: 'Maximum number of results (default 25)',
-              default: 25
+              description: 'Maximum number of results (default 10, max 50)',
+              default: 10
+            },
+            detailed: {
+              type: 'boolean',
+              description: 'Return full player details (default false for token efficiency)',
+              default: false
             }
           }
         }
@@ -116,13 +126,13 @@ export class PlayerTools {
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'search_players':
-        return this.searchPlayers(args.query, args.position, args.team, args.maxResults || 20);
+        return this.searchPlayers(args.query, args.position, args.team, args.maxResults || 10, args.detailed || false);
       
       case 'get_player':
         return this.getPlayer(args.playerIdOrName);
       
       case 'get_trending_players':
-        return this.getTrendingPlayers(args.type || 'add', args.hours || 24, args.limit || 25);
+        return this.getTrendingPlayers(args.type || 'add', args.hours || 24, args.limit || 10, args.detailed || false);
       
       default:
         throw new Error(`Unknown tool: ${name}`);
@@ -141,7 +151,8 @@ export class PlayerTools {
     query?: string, 
     position?: string, 
     team?: string, 
-    maxResults: number = 20
+    maxResults: number = 10,
+    detailed: boolean = false
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
       const result = await this.playerService.searchPlayers({
@@ -151,6 +162,15 @@ export class PlayerTools {
         maxResults
       });
 
+      // Create concise or detailed response based on user preference
+      const responseData = detailed ? result.players : result.players.map(p => ({
+        id: p.playerId,
+        name: p.fullName,
+        pos: p.position,
+        team: p.team,
+        rank: p.searchRank
+      }));
+
       const summary = `Found ${result.players.length} players matching criteria`;
       const filterSummary = [
         result.filters?.query && `Search: "${result.filters.query}"`,
@@ -158,17 +178,29 @@ export class PlayerTools {
         result.filters?.team && `Team: ${result.filters.team}`
       ].filter(Boolean).join(', ');
 
+      const hints = [];
+      if (!detailed && result.players.length > 0) {
+        hints.push('💡 Use detailed=true for full player information');
+      }
+      if (result.totalFound > result.players.length) {
+        hints.push(`💡 ${result.totalFound - result.players.length} more players available - increase maxResults`);
+      }
+      if (result.players.length > 0 && !detailed) {
+        hints.push('💡 Use get_player tool with player name or ID for complete details');
+      }
+
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              timestamp: new Date().toISOString(),
               summary: filterSummary ? `${summary} (${filterSummary})` : summary,
               totalFound: result.totalFound,
-              data: result.players
-            }, null, 2)
+              showing: result.players.length,
+              hints: hints.length > 0 ? hints : undefined,
+              data: responseData
+            })
           }
         ]
       };
@@ -179,9 +211,8 @@ export class PlayerTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -204,9 +235,8 @@ export class PlayerTools {
               type: 'text',
               text: JSON.stringify({
                 success: false,
-                timestamp: new Date().toISOString(),
                 error: `Player not found: ${playerIdOrName}`
-              }, null, 2)
+              })
             }
           ]
         };
@@ -234,9 +264,8 @@ export class PlayerTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -253,7 +282,8 @@ export class PlayerTools {
   private async getTrendingPlayers(
     type: string = 'add', 
     hours: number = 24, 
-    limit: number = 25
+    limit: number = 10,
+    detailed: boolean = false
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
       const result = await this.playerService.getTrendingPlayers({
@@ -262,7 +292,24 @@ export class PlayerTools {
         limit
       });
 
+      // Create concise or detailed response
+      const responseData = detailed ? result.players : result.players.map(p => ({
+        name: p.fullName || 'Unknown Player',
+        pos: p.position,
+        team: p.team,
+        count: p.count,
+        trend: type
+      }));
+
       const summary = `Top ${result.players.length} trending ${type === 'add' ? 'adds' : 'drops'} in last ${hours} hours`;
+      const hints = [];
+      
+      if (!detailed && result.players.length > 0) {
+        hints.push('💡 Use detailed=true for full player information');
+      }
+      if (result.totalCount > result.players.length) {
+        hints.push(`💡 ${result.totalCount - result.players.length} more trending players available`);
+      }
 
       return {
         content: [
@@ -270,11 +317,12 @@ export class PlayerTools {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              timestamp: new Date().toISOString(),
               summary,
               totalCount: result.totalCount,
-              data: result.players
-            }, null, 2)
+              showing: result.players.length,
+              hints: hints.length > 0 ? hints : undefined,
+              data: responseData
+            })
           }
         ]
       };
@@ -285,9 +333,8 @@ export class PlayerTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };

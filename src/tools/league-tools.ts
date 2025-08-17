@@ -22,7 +22,7 @@ export class LeagueTools {
     return [
       {
         name: 'get_user_leagues',
-        description: 'Get all fantasy leagues for a specific user',
+        description: 'Get all fantasy leagues for a specific user. Returns league summary by default.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -34,6 +34,11 @@ export class LeagueTools {
               type: 'string',
               description: 'NFL season year (e.g., "2024"). Defaults to current season',
               default: null
+            },
+            detailed: {
+              type: 'boolean',
+              description: 'Return full league details (default false for token efficiency)',
+              default: false
             }
           },
           required: ['username']
@@ -135,7 +140,7 @@ export class LeagueTools {
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'get_user_leagues':
-        return this.getUserLeagues(args.username, args.season);
+        return this.getUserLeagues(args.username, args.season, args.detailed || false);
       
       case 'get_league_details':
         return this.getLeagueDetails(args.leagueId);
@@ -157,11 +162,32 @@ export class LeagueTools {
    * @param season - Optional season year filter
    * @returns Promise resolving to MCP response with user's leagues
    */
-  private async getUserLeagues(username: string, season?: string): Promise<{ content: Array<{ type: string; text: string }> }> {
+  private async getUserLeagues(username: string, season?: string, detailed: boolean = false): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
       const result = await this.leagueService.getUserLeagues(username, season);
 
+      // Create concise or detailed response
+      const responseData = detailed ? result : {
+        user: { username: result.user.username, displayName: result.user.displayName },
+        season: result.season,
+        totalLeagues: result.totalLeagues,
+        leagues: result.leagues.map(l => ({
+          id: l.leagueId,
+          name: l.name,
+          teams: l.totalRosters,
+          status: l.status
+        }))
+      };
+
       const summary = `Found ${result.totalLeagues} leagues for ${result.user.displayName || result.user.username} in ${result.season}`;
+      const hints = [];
+      
+      if (!detailed && result.leagues.length > 0) {
+        hints.push('💡 Use detailed=true for complete league settings and scoring');
+      }
+      if (result.leagues.length > 0) {
+        hints.push('💡 Use get_league_details with specific league ID for full information');
+      }
 
       return {
         content: [
@@ -169,10 +195,10 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              timestamp: new Date().toISOString(),
               summary,
-              data: result
-            }, null, 2)
+              hints: hints.length > 0 ? hints : undefined,
+              data: responseData
+            })
           }
         ]
       };
@@ -183,9 +209,8 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -208,9 +233,8 @@ export class LeagueTools {
               type: 'text',
               text: JSON.stringify({
                 success: false,
-                timestamp: new Date().toISOString(),
                 error: `League not found: ${leagueId}`
-              }, null, 2)
+              })
             }
           ]
         };
@@ -224,10 +248,9 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              timestamp: new Date().toISOString(),
               summary,
               data: league
-            }, null, 2)
+            })
           }
         ]
       };
@@ -238,9 +261,8 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -267,10 +289,9 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              timestamp: new Date().toISOString(),
               summary,
               data: result
-            }, null, 2)
+            })
           }
         ]
       };
@@ -281,9 +302,8 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -308,10 +328,9 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              timestamp: new Date().toISOString(),
               summary,
               data: result
-            }, null, 2)
+            })
           }
         ]
       };
@@ -322,9 +341,8 @@ export class LeagueTools {
             type: 'text',
             text: JSON.stringify({
               success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };

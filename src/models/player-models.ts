@@ -28,6 +28,14 @@ export interface IPlayerService {
    * @returns Promise resolving to trending player data
    */
   getTrendingPlayers(options?: TrendingPlayerOptions): Promise<TrendingPlayerResult>;
+  
+  /**
+   * Retrieves multiple players by their IDs in a single batch operation.
+   * More efficient than multiple individual getPlayer calls.
+   * @param playerIds - Array of player IDs to retrieve
+   * @returns Promise resolving to map of player ID to player details
+   */
+  getPlayersBatch(playerIds: string[]): Promise<Map<string, PlayerDetails | null>>;
 }
 
 /**
