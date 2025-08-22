@@ -1,5 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { IPlayerService } from '../models/player-models.js';
+import { IPlayerService, PlayerDetails } from '../models/player-models.js';
+import { ResponseProfile, ResponseProfileUtils } from '../models/response-models.js';
+import { DTOTransformer } from '../models/dto-models.js';
 
 /**
  * Player tool handler providing fantasy football player search and analysis capabilities.
@@ -46,9 +48,15 @@ export class PlayerTools {
               description: 'Maximum number of results to return (default 10, max 50)',
               default: 10
             },
+            responseProfile: {
+              type: 'string',
+              description: 'Response detail level: minimal (essential only), standard (balanced), detailed (comprehensive)',
+              enum: ['minimal', 'standard', 'detailed'],
+              default: 'minimal'
+            },
             detailed: {
               type: 'boolean',
-              description: 'Return full player details (default false for token efficiency)',
+              description: 'Legacy: Return full player details (use responseProfile instead)',
               default: false
             }
           }
@@ -89,9 +97,15 @@ export class PlayerTools {
               description: 'Maximum number of results (default 10, max 50)',
               default: 10
             },
+            responseProfile: {
+              type: 'string',
+              description: 'Response detail level: minimal (essential only), standard (balanced), detailed (comprehensive)',
+              enum: ['minimal', 'standard', 'detailed'],
+              default: 'minimal'
+            },
             detailed: {
               type: 'boolean',
-              description: 'Return full player details (default false for token efficiency)',
+              description: 'Legacy: Return full player details (use responseProfile instead)',
               default: false
             }
           }
@@ -126,13 +140,13 @@ export class PlayerTools {
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'search_players':
-        return this.searchPlayers(args.query, args.position, args.team, args.maxResults || 10, args.detailed || false);
+        return this.searchPlayers(args.query, args.position, args.team, args.maxResults || 10, args.responseProfile, args.detailed);
       
       case 'get_player':
-        return this.getPlayer(args.playerIdOrName);
+        return this.getPlayer(args.playerIdOrName, args.responseProfile);
       
       case 'get_trending_players':
-        return this.getTrendingPlayers(args.type || 'add', args.hours || 24, args.limit || 10, args.detailed || false);
+        return this.getTrendingPlayers(args.type || 'add', args.hours || 24, args.limit || 10, args.responseProfile, args.detailed);
       
       default:
         throw new Error(`Unknown tool: ${name}`);
@@ -145,6 +159,8 @@ export class PlayerTools {
    * @param position - Optional position filter (QB, RB, WR, TE, K, DEF)
    * @param team - Optional team filter using team abbreviation
    * @param maxResults - Maximum number of results to return
+   * @param responseProfile - Response detail level
+   * @param legacyDetailed - Legacy detailed flag for backward compatibility
    * @returns Promise resolving to MCP response with search results
    */
   private async searchPlayers(
@@ -152,24 +168,28 @@ export class PlayerTools {
     position?: string, 
     team?: string, 
     maxResults: number = 10,
-    detailed: boolean = false
+    responseProfile?: string,
+    legacyDetailed?: boolean
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
+      const profile = ResponseProfileUtils.parseProfile(responseProfile, legacyDetailed);
+      const fields = DTOTransformer.getPlayerFieldsForProfile(profile);
+      
       const result = await this.playerService.searchPlayers({
         query,
         position,
         team,
         maxResults
-      });
+      }, fields.length > 0 ? fields as (keyof PlayerDetails)[] : undefined);
 
-      // Create concise or detailed response based on user preference
-      const responseData = detailed ? result.players : result.players.map(p => ({
-        id: p.playerId,
-        name: p.fullName,
-        pos: p.position,
-        team: p.team,
-        rank: p.searchRank
-      }));
+      // Transform players using DTOs based on profile
+      let responseData;
+      if (profile === ResponseProfile.DETAILED) {
+        responseData = result.players;
+      } else {
+        const batchTransformer = DTOTransformer.createBatchTransformer(DTOTransformer.transformPlayer);
+        responseData = batchTransformer(result.players, profile);
+      }
 
       const summary = `Found ${result.players.length} players matching criteria`;
       const filterSummary = [
@@ -178,28 +198,37 @@ export class PlayerTools {
         result.filters?.team && `Team: ${result.filters.team}`
       ].filter(Boolean).join(', ');
 
+      const metadata = {
+        totalCount: result.totalFound,
+        showing: result.players.length,
+        filters: result.filters,
+        profile
+      };
+
+      const response = ResponseProfileUtils.createResponse(
+        filterSummary ? `${summary} (${filterSummary})` : summary,
+        responseData,
+        ResponseProfileUtils.shouldIncludeMetadata(profile, metadata) ? metadata : undefined
+      );
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary: filterSummary ? `${summary} (${filterSummary})` : summary,
-              totalFound: result.totalFound,
-              showing: result.players.length,
-              data: responseData
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };
@@ -209,46 +238,57 @@ export class PlayerTools {
   /**
    * Retrieves detailed information about a specific player.
    * @param playerIdOrName - Player ID or full name to search for
+   * @param responseProfile - Response detail level
    * @returns Promise resolving to MCP response with player details
    */
-  private async getPlayer(playerIdOrName: string): Promise<{ content: Array<{ type: string; text: string }> }> {
+  private async getPlayer(playerIdOrName: string, responseProfile?: string): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
-      const player = await this.playerService.getPlayer(playerIdOrName);
+      const profile = ResponseProfileUtils.parseProfile(responseProfile);
+      const fields = DTOTransformer.getPlayerFieldsForProfile(profile);
+      const player = await this.playerService.getPlayer(playerIdOrName, fields.length > 0 ? fields as (keyof PlayerDetails)[] : undefined);
 
       if (!player) {
+        const errorResponse = ResponseProfileUtils.createErrorResponse(
+          `Player not found: ${playerIdOrName}`
+        );
+        
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                error: `Player not found: ${playerIdOrName}`
-              })
+              text: JSON.stringify(errorResponse)
             }
           ]
         };
       }
 
       const summary = `${player.fullName} (${player.position}, ${player.team})`;
+      
+      // Transform player using DTO based on profile
+      const responseData = profile === ResponseProfile.DETAILED 
+        ? player 
+        : DTOTransformer.transformPlayer(player, profile);
+
+      const response = ResponseProfileUtils.createResponse(summary, responseData);
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary,
-              data: player
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };
@@ -260,53 +300,72 @@ export class PlayerTools {
    * @param type - Type of trend to fetch ('add' for most added, 'drop' for most dropped)
    * @param hours - Number of hours to look back for trending data
    * @param limit - Maximum number of trending players to return
+   * @param responseProfile - Response detail level
+   * @param legacyDetailed - Legacy detailed flag for backward compatibility
    * @returns Promise resolving to MCP response with trending player data
    */
   private async getTrendingPlayers(
     type: string = 'add', 
     hours: number = 24, 
     limit: number = 10,
-    detailed: boolean = false
+    responseProfile?: string,
+    legacyDetailed?: boolean
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
+      const profile = ResponseProfileUtils.parseProfile(responseProfile, legacyDetailed);
+      const fields = DTOTransformer.getTrendingFieldsForProfile(profile);
+      
       const result = await this.playerService.getTrendingPlayers({
         type: type as 'add' | 'drop',
         hours,
         limit
-      });
+      }, fields.length > 0 ? fields as (keyof PlayerDetails)[] : undefined);
 
-      // Create concise or detailed response
-      const responseData = detailed ? result.players : result.players.map(p => ({
-        name: p.fullName || 'Unknown Player',
-        pos: p.position,
-        team: p.team,
-        count: p.count,
-        trend: type
-      }));
+      // Transform trending players using DTOs based on profile
+      let responseData;
+      if (profile === ResponseProfile.DETAILED) {
+        responseData = result.players.map(p => ({
+          ...p,
+          trend: type
+        }));
+      } else {
+        const includeDetails = profile === ResponseProfile.STANDARD;
+        const batchTransformer = DTOTransformer.createBatchTransformer(DTOTransformer.transformTrendingPlayer);
+        responseData = batchTransformer(result.players, type, includeDetails);
+      }
 
       const summary = `Top ${result.players.length} trending ${type === 'add' ? 'adds' : 'drops'} in last ${hours} hours`;
+
+      const metadata = {
+        totalCount: result.totalCount,
+        showing: result.players.length,
+        profile
+      };
+
+      const response = ResponseProfileUtils.createResponse(
+        summary,
+        responseData,
+        ResponseProfileUtils.shouldIncludeMetadata(profile, metadata) ? metadata : undefined
+      );
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary,
-              totalCount: result.totalCount,
-              showing: result.players.length,
-              data: responseData
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };

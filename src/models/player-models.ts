@@ -11,31 +11,35 @@ export interface IPlayerService {
   /**
    * Searches for players based on various criteria.
    * @param options - Optional search filters and parameters
+   * @param fields - Optional specific fields to retrieve (optimizes response size)
    * @returns Promise resolving to search results with matching players
    */
-  searchPlayers(options?: PlayerSearchOptions): Promise<PlayerSearchResult>;
+  searchPlayers(options?: PlayerSearchOptions, fields?: (keyof PlayerDetails)[]): Promise<PlayerSearchResult>;
   
   /**
    * Retrieves detailed information for a specific player.
    * @param playerIdOrName - Either player ID or player name to search for
+   * @param fields - Optional specific fields to retrieve (optimizes response size)
    * @returns Promise resolving to detailed player info or null if not found
    */
-  getPlayer(playerIdOrName: string): Promise<PlayerDetails | null>;
+  getPlayer(playerIdOrName: string, fields?: (keyof PlayerDetails)[]): Promise<PlayerDetails | null>;
   
   /**
    * Gets trending players based on add/drop activity.
    * @param options - Optional parameters for trending analysis
+   * @param fields - Optional specific fields to retrieve (optimizes response size)
    * @returns Promise resolving to trending player data
    */
-  getTrendingPlayers(options?: TrendingPlayerOptions): Promise<TrendingPlayerResult>;
+  getTrendingPlayers(options?: TrendingPlayerOptions, fields?: (keyof PlayerDetails)[]): Promise<TrendingPlayerResult>;
   
   /**
    * Retrieves multiple players by their IDs in a single batch operation.
    * More efficient than multiple individual getPlayer calls.
    * @param playerIds - Array of player IDs to retrieve
+   * @param fields - Optional specific fields to retrieve (optimizes response size)
    * @returns Promise resolving to map of player ID to player details
    */
-  getPlayersBatch(playerIds: string[]): Promise<Map<string, PlayerDetails | null>>;
+  getPlayersBatch(playerIds: string[], fields?: (keyof PlayerDetails)[]): Promise<Map<string, PlayerDetails | null>>;
 }
 
 /**

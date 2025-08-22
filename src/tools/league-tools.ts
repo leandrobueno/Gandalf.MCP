@@ -1,5 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ILeagueService } from '../models/league-models.js';
+import { ResponseProfile, ResponseProfileUtils } from '../models/response-models.js';
+import { DTOTransformer } from '../models/dto-models.js';
 
 /**
  * League tool handler providing fantasy football league management and analysis capabilities.
@@ -35,9 +37,15 @@ export class LeagueTools {
               description: 'NFL season year (e.g., "2024"). Defaults to current season',
               default: null
             },
+            responseProfile: {
+              type: 'string',
+              description: 'Response detail level: minimal, standard, detailed',
+              enum: ['minimal', 'standard', 'detailed'],
+              default: 'minimal'
+            },
             detailed: {
               type: 'boolean',
-              description: 'Return full league details (default false for token efficiency)',
+              description: 'Legacy: Return full league details (use responseProfile instead)',
               default: false
             }
           },
@@ -140,7 +148,7 @@ export class LeagueTools {
   async handleTool(name: string, args: Record<string, any>): Promise<{ content: Array<{ type: string; text: string }> }> {
     switch (name) {
       case 'get_user_leagues':
-        return this.getUserLeagues(args.username, args.season, args.detailed || false);
+        return this.getUserLeagues(args.username, args.season, args.responseProfile, args.detailed);
       
       case 'get_league_details':
         return this.getLeagueDetails(args.leagueId);
@@ -162,44 +170,55 @@ export class LeagueTools {
    * @param season - Optional season year filter
    * @returns Promise resolving to MCP response with user's leagues
    */
-  private async getUserLeagues(username: string, season?: string, detailed: boolean = false): Promise<{ content: Array<{ type: string; text: string }> }> {
+  private async getUserLeagues(username: string, season?: string, responseProfile?: string, legacyDetailed?: boolean): Promise<{ content: Array<{ type: string; text: string }> }> {
     try {
+      const profile = ResponseProfileUtils.parseProfile(responseProfile, legacyDetailed);
       const result = await this.leagueService.getUserLeagues(username, season);
 
-      // Create concise or detailed response
-      const responseData = detailed ? result : {
+      // Transform leagues using DTOs based on profile
+      let leagueData;
+      if (profile === ResponseProfile.DETAILED) {
+        leagueData = result.leagues;
+      } else {
+        const batchTransformer = DTOTransformer.createBatchTransformer(DTOTransformer.transformLeague);
+        leagueData = batchTransformer(result.leagues, profile);
+      }
+
+      const responseData = {
         user: { username: result.user.username, displayName: result.user.displayName },
         season: result.season,
         totalLeagues: result.totalLeagues,
-        leagues: result.leagues.map(l => ({
-          id: l.leagueId,
-          name: l.name,
-          teams: l.totalRosters,
-          status: l.status
-        }))
+        leagues: leagueData
       };
 
       const summary = `Found ${result.totalLeagues} leagues for ${result.user.displayName || result.user.username} in ${result.season}`;
 
+      const metadata = profile !== ResponseProfile.MINIMAL ? {
+        totalCount: result.totalLeagues,
+        showing: result.leagues.length,
+        profile
+      } : undefined;
+
+      const response = ResponseProfileUtils.createResponse(summary, responseData, metadata);
+
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary,
-              data: responseData
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };
@@ -216,13 +235,15 @@ export class LeagueTools {
       const league = await this.leagueService.getLeagueDetails(leagueId);
       
       if (!league) {
+        const errorResponse = ResponseProfileUtils.createErrorResponse(
+          `League not found: ${leagueId}`
+        );
+        
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                error: `League not found: ${leagueId}`
-              })
+              text: JSON.stringify(errorResponse)
             }
           ]
         };
@@ -230,25 +251,26 @@ export class LeagueTools {
 
       const summary = `${league.name} - ${league.totalRosters} team league (${league.season}) - ${league.scoringType}`;
 
+      const response = ResponseProfileUtils.createResponse(summary, league);
+
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary,
-              data: league
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };
@@ -269,25 +291,26 @@ export class LeagueTools {
 
       const summary = `Week ${result.week} matchups for league ${leagueId} - ${result.totalMatchups} matchups`;
 
+      const response = ResponseProfileUtils.createResponse(summary, result);
+
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary,
-              data: result
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };
@@ -306,25 +329,26 @@ export class LeagueTools {
 
       const summary = `${result.totalTransactions} transactions for week ${result.week} in league ${leagueId}`;
 
+      const response = ResponseProfileUtils.createResponse(summary, result);
+
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              summary,
-              data: result
-            })
+            text: JSON.stringify(response)
           }
         ]
       };
     } catch (error) {
+      const errorResponse = ResponseProfileUtils.createErrorResponse(
+        error instanceof Error ? error.message : String(error)
+      );
+      
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              error: error instanceof Error ? error.message : String(error)
-            })
+            text: JSON.stringify(errorResponse)
           }
         ]
       };
