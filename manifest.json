@@ -1,7 +1,7 @@
 {
   "dxt_version": "0.1",
   "name": "gandalf-mcp",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "display_name": "gandalf",
   "description": "MCP server for fantasy football data from Sleeper App",
   "long_description": "# Gandalf Fantasy Football MCP\n\nA comprehensive Model Context Protocol (MCP) server that provides fantasy football data and analytics through Sleeper APIs. Features include:\n\n- Player information and statistics\n- League management and standings\n- Roster analysis and recommendations\n- Draft information\n- Matchup data and projections\n- Trending player analysis\n\nPerfect for fantasy football enthusiasts who want to integrate their league data with Claude Desktop.\n\n## API Usage & Compliance\n\nThis extension follows Sleeper API best practices:\n- Implements intelligent caching to minimize API calls\n- Respects rate limits and usage guidelines\n- Caches player data locally as recommended (refreshed daily)\n- Uses appropriate User-Agent headers for identification",
