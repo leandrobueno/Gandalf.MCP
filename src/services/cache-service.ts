@@ -72,8 +72,13 @@ export class MemoryCacheService implements ICacheService {
    * ```
    */
   constructor() {
-    // Set up cache directory
-    this.cacheDir = path.join(process.cwd(), 'cache');
+    // Use a more robust cache directory path that works in various environments
+    const baseDir = process.env.GANDALF_CACHE_DIR || 
+                   (process.env.HOME ? path.join(process.env.HOME, '.gandalf-cache') : 
+                   (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, '.gandalf-cache') : 
+                   path.join(process.cwd(), 'cache')));
+    
+    this.cacheDir = baseDir;
     this.ensureCacheDirectory().catch(error => {
       console.error('Error creating cache directory:', error);
     });
