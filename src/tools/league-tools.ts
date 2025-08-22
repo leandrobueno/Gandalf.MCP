@@ -180,23 +180,13 @@ export class LeagueTools {
       };
 
       const summary = `Found ${result.totalLeagues} leagues for ${result.user.displayName || result.user.username} in ${result.season}`;
-      const hints = [];
-      
-      if (!detailed && result.leagues.length > 0) {
-        hints.push('💡 Use detailed=true for complete league settings and scoring');
-      }
-      if (result.leagues.length > 0) {
-        hints.push('💡 Use get_league_details with specific league ID for full information');
-      }
 
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
               summary,
-              hints: hints.length > 0 ? hints : undefined,
               data: responseData
             })
           }
@@ -208,7 +198,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }
@@ -232,7 +221,6 @@ export class LeagueTools {
             {
               type: 'text',
               text: JSON.stringify({
-                success: false,
                 error: `League not found: ${leagueId}`
               })
             }
@@ -247,7 +235,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
               summary,
               data: league
             })
@@ -260,7 +247,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }
@@ -288,7 +274,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
               summary,
               data: result
             })
@@ -301,7 +286,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }
@@ -327,7 +311,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
               summary,
               data: result
             })
@@ -340,7 +323,6 @@ export class LeagueTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }

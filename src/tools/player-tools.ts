@@ -178,27 +178,15 @@ export class PlayerTools {
         result.filters?.team && `Team: ${result.filters.team}`
       ].filter(Boolean).join(', ');
 
-      const hints = [];
-      if (!detailed && result.players.length > 0) {
-        hints.push('💡 Use detailed=true for full player information');
-      }
-      if (result.totalFound > result.players.length) {
-        hints.push(`💡 ${result.totalFound - result.players.length} more players available - increase maxResults`);
-      }
-      if (result.players.length > 0 && !detailed) {
-        hints.push('💡 Use get_player tool with player name or ID for complete details');
-      }
 
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
               summary: filterSummary ? `${summary} (${filterSummary})` : summary,
               totalFound: result.totalFound,
               showing: result.players.length,
-              hints: hints.length > 0 ? hints : undefined,
               data: responseData
             })
           }
@@ -210,7 +198,6 @@ export class PlayerTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }
@@ -234,7 +221,6 @@ export class PlayerTools {
             {
               type: 'text',
               text: JSON.stringify({
-                success: false,
                 error: `Player not found: ${playerIdOrName}`
               })
             }
@@ -249,11 +235,9 @@ export class PlayerTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
-              timestamp: new Date().toISOString(),
               summary,
               data: player
-            }, null, 2)
+            })
           }
         ]
       };
@@ -263,7 +247,6 @@ export class PlayerTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }
@@ -302,25 +285,15 @@ export class PlayerTools {
       }));
 
       const summary = `Top ${result.players.length} trending ${type === 'add' ? 'adds' : 'drops'} in last ${hours} hours`;
-      const hints = [];
-      
-      if (!detailed && result.players.length > 0) {
-        hints.push('💡 Use detailed=true for full player information');
-      }
-      if (result.totalCount > result.players.length) {
-        hints.push(`💡 ${result.totalCount - result.players.length} more trending players available`);
-      }
 
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
               summary,
               totalCount: result.totalCount,
               showing: result.players.length,
-              hints: hints.length > 0 ? hints : undefined,
               data: responseData
             })
           }
@@ -332,7 +305,6 @@ export class PlayerTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
               error: error instanceof Error ? error.message : String(error)
             })
           }

@@ -255,11 +255,9 @@ export class DraftTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: true,
-              timestamp: new Date().toISOString(),
               summary,
               data: draftInfo
-            }, null, 2)
+            })
           }
         ]
       };
@@ -269,10 +267,8 @@ export class DraftTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -346,7 +342,7 @@ export class DraftTools {
               totalPicks: result.totalPicks,
               filteredPicks: result.filteredPicks,
               data: result.picks
-            }, null, 2)
+            })
           }
         ]
       };
@@ -356,10 +352,8 @@ export class DraftTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
@@ -414,7 +408,7 @@ export class DraftTools {
               draftId: result.draftId,
               totalDraftedPlayers: result.totalDraftedPlayers,
               data: result.availablePlayers
-            }, null, 2)
+            })
           }
         ]
       };
@@ -424,10 +418,8 @@ export class DraftTools {
           {
             type: 'text',
             text: JSON.stringify({
-              success: false,
-              timestamp: new Date().toISOString(),
               error: error instanceof Error ? error.message : String(error)
-            }, null, 2)
+            })
           }
         ]
       };
