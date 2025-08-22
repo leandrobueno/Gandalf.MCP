@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { SleeperNFLState } from '../models/sleeper-models.js';
 
 /**
@@ -80,8 +81,18 @@ export class HistoricalCacheService implements IHistoricalCacheService {
 
     for (const dir of directories) {
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        console.error(`Created cache directory: ${dir}`);
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+          console.error(`Created cache directory: ${dir}`);
+        } catch (error) {
+          const platformInfo = `${os.platform()} ${os.arch()}`;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Failed to create cache directory on ${platformInfo}. ` +
+            `Path: ${dir}, Error: ${errorMessage}. ` +
+            `Check directory permissions and available disk space.`
+          );
+        }
       }
     }
   }
@@ -186,7 +197,17 @@ export class HistoricalCacheService implements IHistoricalCacheService {
     // Ensure the directory exists
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+      } catch (error) {
+        const platformInfo = `${os.platform()} ${os.arch()}`;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Failed to create cache subdirectory on ${platformInfo}. ` +
+          `Path: ${dir}, Error: ${errorMessage}. ` +
+          `Check directory permissions and available disk space.`
+        );
+      }
     }
 
     return filePath;

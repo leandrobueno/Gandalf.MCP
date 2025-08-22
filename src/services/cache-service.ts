@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 /**
  * Represents a cache entry stored in memory with expiration information.
@@ -94,9 +95,19 @@ export class MemoryCacheService implements ICacheService {
     try {
       await fs.promises.access(this.cacheDir);
     } catch {
-      await fs.promises.mkdir(this.cacheDir, { recursive: true });
-      if (this.enableVerboseLogging) {
-        console.error(`Created cache directory: ${this.cacheDir}`);
+      try {
+        await fs.promises.mkdir(this.cacheDir, { recursive: true });
+        if (this.enableVerboseLogging) {
+          console.error(`Created cache directory: ${this.cacheDir}`);
+        }
+      } catch (error) {
+        const platformInfo = `${os.platform()} ${os.arch()}`;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Failed to create cache directory on ${platformInfo}. ` +
+          `Path: ${this.cacheDir}, Error: ${errorMessage}. ` +
+          `Check directory permissions and available disk space.`
+        );
       }
     }
   }
